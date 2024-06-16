@@ -1,4 +1,5 @@
 appdirs==1.4.4
+asgiref==3.8.1
 attrs==23.2.0
 bcrypt==3.1.7
 beautifulsoup4==4.10.0
@@ -14,6 +15,7 @@ defer==1.0.6
 distlib==0.3.4
 distro==1.7.0
 distro-info==1.1+ubuntu0.2
+Django==5.0.6
 Fabric3==1.14.post1
 filelock==3.6.0
 flasgger==0.9.7.1
@@ -65,6 +67,7 @@ SecretStorage==3.3.1
 six==1.16.0
 soupsieve==2.3.1
 SQLAlchemy==2.0.29
+sqlparse==0.5.0
 ssh-import-id==5.11
 systemd-python==234
 typing_extensions==4.11.0
