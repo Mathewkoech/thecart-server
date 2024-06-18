@@ -6,3 +6,4 @@ __pycache__/
 lib/
 lib64/
 .venv
+*.pyc
