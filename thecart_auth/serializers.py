@@ -37,6 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "password",
             "profile",
+            "username",
             "first_name",
             "last_name",
             "full_name",
@@ -108,17 +109,27 @@ class BaseRegisterSerializer(serializers.Serializer):
 
     first_name = serializers.CharField(required=False)
     last_name = serializers.CharField(required=False)
+    username = serializers.CharField(required=False)
     phone = serializers.CharField(required=False)
     email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED)
 
     def validate_email(self, email):
         email = get_adapter().clean_email(email)
-        if allauth_settings.UNIQUE_EMAIL:
-            if email and email_address_exists(email):
-                raise serializers.ValidationError(
-                    _("A user is already registered with this e-mail address.")
-                )
+        email_count = User.objects.filter(email__iexact=email).count()
+        if email_count > 0:
+            raise serializers.ValidationError(
+                _("A user is already registered with this e-mail address.")
+            )
         return email
+
+    def validate_username(self, username):
+        username = get_adapter().clean_username(username)
+        username_count = User.objects.filter(username=username).count()
+        if username_count > 0:
+            raise serializers.ValidationError(
+                _("A user is already registered with this username.")
+            )
+        return username
 
     def save(self, request):
         adapter = get_adapter()
@@ -128,6 +139,26 @@ class BaseRegisterSerializer(serializers.Serializer):
         self.custom_signup(request, user)
         setup_user_email(request, user, [])
         return user
+
+
+class CustomRegisterSerializer(BaseRegisterSerializer):
+    email = serializers.EmailField(required=True)
+    username = serializers.CharField(required=True)
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=True)
+
+    def get_cleaned_data(self):
+        data = super().get_cleaned_data()
+        data['email'] = self.validated_data.get('email', '')
+        data['username'] = self.validated_data.get('username', '')
+        data['first_name'] = self.validated_data.get('first_name', '')
+        data['last_name'] = self.validated_data.get('last_name', '')
+        data['phone'] = self.validated_data.get('phone', '')
+        data['role'] = self.validated_data.get('role', '')
+        return data
+
 
 
 class RegisterNonAdminUserSerializer(BaseRegisterSerializer):
@@ -143,7 +174,11 @@ class RegisterNonAdminUserSerializer(BaseRegisterSerializer):
     password2 = serializers.CharField(write_only=True)
 
     def custom_signup(self, request, user):
-        Profile.objects.create(user=user,)
+        role = self.validated_data.get("role")
+        user.role = role
+        user.save()
+        Profile.objects.create(user=user, created_by=request.user, role=role)
+
 
     def get_cleaned_data(self):
         return {
@@ -151,6 +186,7 @@ class RegisterNonAdminUserSerializer(BaseRegisterSerializer):
             "last_name": self.validated_data.get("last_name"),
             "email": self.validated_data.get("email"),
             "phone": self.validated_data.get("phone"),
+            "username":self.validated_data.get("username"),
             "role": self.validated_data.get("role"),
             "password1": self.validated_data.get("password1"),
         }

@@ -1,12 +1,7 @@
 from allauth.account.adapter import DefaultAccountAdapter
-from django.contrib.sites.shortcuts import get_current_site
-from django.core.mail import EmailMessage
 from django.http.response import HttpResponseRedirect
-from django.template.loader import render_to_string
-from django.template import TemplateDoesNotExist
-from allauth.account.utils import user_email, user_field, get_user_model
 from django.urls import reverse
-
+from allauth.account.utils import user_email, user_field
 
 class CustomAccountAdapter(DefaultAccountAdapter):
     """
@@ -19,29 +14,19 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         signup form.
         """
         data = form.cleaned_data
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        email = data.get('email')
-        username = data.get('username')
-        phone = data.get('phone')
-        user_email(user, email)
-        if first_name:
-            user_field(user, 'first_name', first_name)
-        if last_name:
-            user_field(user, 'last_name', last_name)
-        if phone:
-            user_field(user, 'phone', phone)
-        if username:
-            user_field(user, 'username', username)
-        else:
-            pass
+        user_email(user, data.get('email'))
+        user.username = data.get('username')
+        user.first_name = data.get('first_name')
+        user.last_name = data.get('last_name')
+        user.phone = data.get('phone')
+        user.role = data.get('role')
+
         if 'password1' in data:
             user.set_password(data["password1"])
         else:
             user.set_unusable_password()
+        
         if commit:
-            # Ability not to commit makes it easier to derive from
-            # this adapter by adding
             user.save()
         return user
 
@@ -49,11 +34,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         """
         Normalize the email address by lowercasing it.
         """
-        try:
-            email = email.lower()
-        except ValueError:
-            pass
-        return email
+        return email.lower()
 
     def respond_email_verification_sent(self, request, user):
         return HttpResponseRedirect(reverse("auth:account_email_verification_sent"))
