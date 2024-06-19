@@ -8,28 +8,29 @@ from django.conf import settings
 from common.models import TimeStampedModelMixin
 from uuid import uuid4 as uuid
 
-# Create your models here.
 
 
 class MyUserManager(BaseUserManager):
     use_in_migrations = True
 
-    def _create_user(self, email, password, **extra_fields):
+    def _create_user(self, username, email, password, **extra_fields):
         """
-        Creates and saves a user with the given password and email
+        Creates and saves a user with the given username, email, and password.
         """
         if not email:
             raise ValueError("The given email must be set")
+        if not username:
+            raise ValueError("The given username must be set")
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_user(self, email=None, password=None, **extra_fields):
-        return self._create_user(email, password, **extra_fields)
+    def create_user(self, username, email=None, password=None, **extra_fields):
+        return self._create_user(username, email, password, **extra_fields)
 
-    def create_superuser(self, email, password, **extra_fields):
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
 
@@ -38,7 +39,8 @@ class MyUserManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
 
-        return self._create_user(email, password, **extra_fields)
+        return self._create_user(username, email, password, **extra_fields)
+
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -46,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(_("first name"), max_length=30, blank=True)
     last_name = models.CharField(_("last name"), max_length=150, blank=True)
     email = models.EmailField(_("email address"), blank=True, unique=True)
+    username = models.CharField(_("username"), max_length=150, blank=True, unique=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True)
@@ -92,8 +95,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = MyUserManager()
 
-    EMAIL_FIELD = "email"
-    USERNAME_FIELD = "email"
+    MAIL_FIELD = "email"
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
 
     @property
     def full_name(self):

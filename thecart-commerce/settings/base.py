@@ -1,12 +1,24 @@
 from pathlib import Path
 from decouple import config, Csv
 import datetime
+import os
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = config("DEBUG", cast=bool, default=True)
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv(), default="*")
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+SITE_ID = config("SITE_ID", cast=int)
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv(), default="127.0.0.1")
+
+print(ALLOWED_HOSTS)
 SECRET_KEY = config("SECRET_KEY")
+DEBUG = config("DEBUG", cast=bool, default=False)
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -68,8 +80,8 @@ TEMPLATES = [
 
 AUTH_USER_MODEL = 'thecart_auth.User'
 
+
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.TokenAuthentication',
@@ -82,6 +94,7 @@ REST_FRAMEWORK = {
     'COERCE_DECIMAL_TO_STRING': False,
 }
 
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': datetime.timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
@@ -92,13 +105,12 @@ SIMPLE_JWT = {
 ACCOUNT_ADAPTER = 'thecart_auth.adapter.CustomAccountAdapter'
 REST_USE_JWT = True
 OLD_PASSWORD_FIELD_ENABLED = False
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_ADAPTER = 'thecart_auth.adapter.CustomAccountAdapter'
 ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
-ACCOUNT_EMAIL_SUBJECT_PREFIX = ''
-ACCOUNT_LOGOUT_ON_GET = False
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = 'username'
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
+
 
 dj_rest_auth_SERIALIZERS = {
     'PASSWORD_RESET_SERIALIZER': 'thecart_auth.serializers.CustomPasswordResetSerializer',
@@ -107,7 +119,7 @@ dj_rest_auth_SERIALIZERS = {
 }
 
 dj_rest_auth_REGISTER_SERIALIZERS = {
-    'REGISTER_SERIALIZER': 'thecart_auth.serializers.RegisterNonAdminUserSerializer'
+    'REGISTER_SERIALIZER': 'thecart_auth.serializers.CustomRegisterSerializer'
 }
 
 AUTH_PASSWORD_VALIDATORS = [
