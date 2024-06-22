@@ -1,10 +1,17 @@
-from rest_framework import serializers
+from rest_framework import serializers,  exceptions
 from thecart_auth.models import User, Profile
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.utils.translation import gettext_lazy as _
 from datetime import datetime
+from django.conf import settings
+from django.contrib.auth import get_user_model, authenticate
+from thecart_auth.forms import CustomPasswordResetForm
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
+from django.contrib.auth.forms import SetPasswordForm
 from calendar import timegm
+UserModel = get_user_model()
+from django.db.models import Q
 
 try:
     from allauth.account import app_settings as allauth_settings
@@ -20,6 +27,14 @@ class ProfileSerializer(serializers.ModelSerializer):
     Serializer class for a user profile instance
     """
 
+    class Meta:
+        fields = "__all__"
+        model = Profile
+
+class ReadProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer class for a user profile instance
+    """
     class Meta:
         fields = "__all__"
         model = Profile
@@ -83,8 +98,9 @@ def jwt_payload_handler(user):
         "last_name": user.last_name,
         "role": user.role,
         "is_rider": user.is_rider,
-        "is_ops_admin": user.is_ops_admin,
+        # "is_ops_admin": user.is_ops_admin,
         "is_regular_user": user.is_regular_user,
+        "usable": user.usable,
         "exp": datetime.utcnow() + api_settings.JWT_EXPIRATION_DELTA,
     }
 
@@ -140,24 +156,112 @@ class BaseRegisterSerializer(serializers.Serializer):
         setup_user_email(request, user, [])
         return user
 
+class ReadUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer class for a User instance
+    """
+    profile = ReadProfileSerializer(read_only=True)
 
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "profile",
+            "first_name",
+            "last_name",
+            "full_name",
+            "username",
+            "role",
+            "usable",
+            "phone",
+            "is_active",
+            "is_deleted",
+            "is_ops_admin",
+            "is_superuser",
+            "_is_rider",
+            "_is_regular_user",
+            "full_name"
+        )
+        extra_kwargs = {"password": {"write_only": True}}
+        read_only_fields = ("id", "full_name")
+
+class CustomPasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(max_length=128)
+    new_password1 = serializers.CharField(max_length=128)
+    new_password2 = serializers.CharField(max_length=128)
+    user_id = serializers.PrimaryKeyRelatedField(required=False, queryset=User.objects.all())
+
+    set_password_form_class = SetPasswordForm
+
+    set_password_form = None
+
+    def __init__(self, *args, **kwargs):
+        print(self)
+        self.old_password_field_enabled = getattr(
+            settings, 'OLD_PASSWORD_FIELD_ENABLED', False,
+        )
+        self.logout_on_password_change = getattr(
+            settings, 'LOGOUT_ON_PASSWORD_CHANGE', False,
+        )
+        super().__init__(*args, **kwargs)
+
+        if not self.old_password_field_enabled:
+            self.fields.pop('old_password')
+
+        self.request = self.context.get('request')
+
+        self.user_id = self.request.data.get("user_id", None)
+        if self.user_id is not None:
+            user = User.objects.get(pk=self.user_id)
+        self.user = getattr(self.request, 'user', user)
+
+    def validate_old_password(self, value):
+        invalid_password_conditions = (
+            self.old_password_field_enabled,
+            self.user,
+            not self.user.check_password(value),
+        )
+
+        if all(invalid_password_conditions):
+            err_msg = _('Your old password was entered incorrectly. Please enter it again.')
+            raise serializers.ValidationError(err_msg)
+        return value
+
+    def validate(self, attrs):
+        self.set_password_form = self.set_password_form_class(
+            user=self.user, data=attrs,
+        )
+
+        if not self.set_password_form.is_valid():
+            raise serializers.ValidationError(self.set_password_form.errors)
+        return attrs
+
+    def save(self):
+        self.set_password_form.save()
+        if not self.logout_on_password_change:
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(self.request, self.user)
 class CustomRegisterSerializer(BaseRegisterSerializer):
-    email = serializers.EmailField(required=True)
-    username = serializers.CharField(required=True)
-    first_name = serializers.CharField(required=True)
-    last_name = serializers.CharField(required=True)
-    phone = serializers.CharField(required=False, allow_blank=True)
-    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=True)
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
+    def custom_signup(self, request, user):
+        Profile.objects.create(
+            user=user, created_by=user
+        )
+        user.is_ops_admin = True
+        user.save()
 
     def get_cleaned_data(self):
-        data = super().get_cleaned_data()
-        data['email'] = self.validated_data.get('email', '')
-        data['username'] = self.validated_data.get('username', '')
-        data['first_name'] = self.validated_data.get('first_name', '')
-        data['last_name'] = self.validated_data.get('last_name', '')
-        data['phone'] = self.validated_data.get('phone', '')
-        data['role'] = self.validated_data.get('role', '')
-        return data
+        return {
+            "first_name": self.validated_data.get("first_name"),
+            "last_name": self.validated_data.get("last_name"),
+            "phone": self.validated_data.get("phone"),
+            "password1": self.validated_data.get("password1"),
+            "email": self.validated_data.get("email"),
+            "username": self.validated_data.get("username"),
+        }
 
 
 
@@ -177,7 +281,7 @@ class RegisterNonAdminUserSerializer(BaseRegisterSerializer):
         role = self.validated_data.get("role")
         user.role = role
         user.save()
-        Profile.objects.create(user=user, created_by=request.user, role=role)
+        Profile.objects.create(user=user, created_by=user)
 
 
     def get_cleaned_data(self):
@@ -210,6 +314,15 @@ class CustomJWTSerializer(serializers.Serializer):
 
     token = serializers.CharField()
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        # The default result (access/refresh tokens)
+        data = super(CustomTokenObtainPairSerializer, self).validate(attrs)
+        # Custom data you want to include
+        # data.update({'user': self.user.username})
+        # data.update({'id': self.user.id})
+        # and everything else you want to send in the response
+        return data
 
 class CustomPasswordResetSerializer(PasswordResetSerializer):
     def get_email_options(self):
@@ -222,3 +335,143 @@ class CustomPasswordResetSerializer(PasswordResetSerializer):
             "html_email_template_name": "registration/password_reset_email.html",
             "from_email": "Thecart Accounts <kmathew201@gmail.com",
         }
+
+
+class CustomAuthenticationBackend:
+
+    def authenticate(self, email_or_username=None, password=None):
+        try:
+             user = User.objects.get(
+                 Q(email__iexact=email_or_username) | Q(username__iexact=email_or_username)
+             )
+             pwd_valid = user.check_password(password)
+             if pwd_valid:            
+                 return user
+             return None
+        except User.DoesNotExist:
+            return None
+
+    def get_user(self, user_id):
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+
+class CustomLoginSerializer(serializers.Serializer):
+    username_email = serializers.CharField(required=False, allow_blank=True)
+    username = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    password = serializers.CharField(style={'input_type': 'password'})
+
+    def _validate_email(self, email, password):
+        user = None
+
+        if email and password:
+            user = authenticate(email=email, password=password)
+        else:
+            msg = _('Must include "email/username" and "password".')
+            raise exceptions.ValidationError(msg)
+
+        return user
+
+    def _validate_phone(self, phone, password):
+        user = None
+
+        if phone and password:
+            user = authenticate(phone=phone, password=password)
+        else:
+            msg = _('Must include "phone" and "password".')
+            raise exceptions.ValidationError(msg)
+
+        return user
+
+
+    def _validate_username(self, username, password):
+        user = None
+
+        if username and password:
+            user = authenticate(username=username, password=password)
+        else:
+            msg = _('Must include "username" and "password".')
+            raise exceptions.ValidationError(msg)
+
+        return user
+
+    def _validate_username_email(self, username, email, password):
+        user = None
+
+        if email and password:
+            user = authenticate(email=email, password=password)
+        elif username and password:
+            user = authenticate(username=username, password=password)
+        else:
+            msg = _('Must include either "username" or "email" and "password".')
+            raise exceptions.ValidationError(msg)
+
+        return user
+
+    def _validate_username_email_override(self, username_email, password):
+        user = None
+
+        if username_email and password:
+            user = CustomAuthenticationBackend.authenticate(self, email_or_username=username_email, password=password)
+        else:
+            msg = _('Must include either "username" or "email" and "password".')
+            raise exceptions.ValidationError(msg)
+
+        return user
+
+    def validate(self, attrs):
+        username_email = attrs.get('username_email')
+        username = attrs.get('username')
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        user = None
+
+        if 'allauth' in settings.INSTALLED_APPS:
+            from allauth.account import app_settings
+
+            # Authentication through email
+            if app_settings.AUTHENTICATION_METHOD == app_settings.AuthenticationMethod.EMAIL:
+                user = self._validate_email(email, password)
+
+            # Authentication through username
+            elif app_settings.AUTHENTICATION_METHOD == app_settings.AuthenticationMethod.USERNAME:
+                user = self._validate_username(username, password)
+
+            # Authentication through either username or email
+            else:
+                user = self._validate_username_email_override(username_email, password)
+
+        else:
+            # Authentication without using allauth
+            if email:
+                try:
+                    username = UserModel.objects.get(email__iexact=email).get_username()
+                except UserModel.DoesNotExist:
+                    pass
+
+            if username:
+                user = self._validate_username_email(username, '', password)
+
+        # Did we get back an active user?
+        if user:
+            if not user.is_active:
+                msg = _('User account is disabled.')
+                raise exceptions.ValidationError(msg)
+        else:
+            msg = _('Unable to log in with provided credentials.')
+            raise exceptions.ValidationError(msg)
+
+        # If required, is the email verified?
+        if 'rest_auth.registration' in settings.INSTALLED_APPS:
+            from allauth.account import app_settings
+            if app_settings.EMAIL_VERIFICATION == app_settings.EmailVerificationMethod.MANDATORY:
+                email_address = user.emailaddress_set.get(email=user.email)
+                if not email_address.verified:
+                    raise serializers.ValidationError(_('E-mail is not verified.'))
+
+        attrs['user'] = user
+        return attrs

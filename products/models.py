@@ -39,21 +39,6 @@ class Product(FlaggedModelMixin, TimeStampedModelMixin):
 
 
 
-
-class Cart(FlaggedModelMixin, TimeStampedModelMixin):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
-
-    def __str__(self):
-        return f"Cart of {self.user.username}"
-
-class CartItem(FlaggedModelMixin, TimeStampedModelMixin):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
-
-    def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
-
 class Group(FlaggedModelMixin, TimeStampedModelMixin):
     name = models.CharField(max_length=250, unique=True)
     slug = models.CharField(max_length=250, null=True, unique=True)

@@ -50,6 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(_("email address"), blank=True, unique=True)
     username = models.CharField(_("username"), max_length=150, blank=True, unique=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
+    is_ops_admin = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True)
     modified_by = models.ForeignKey(
@@ -88,7 +89,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=True,
         help_text=_(
             "Designates whether this user should be treated as active. "
-            "Unselect this instead of deleting accounts."
         ),
     )
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
@@ -98,6 +98,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     MAIL_FIELD = "email"
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
+
+    def _usable(self):
+        return self.has_usable_password()
+
+    _usable.boolean = True
+    usable = property(_usable)
 
     @property
     def full_name(self):
@@ -131,11 +137,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_rider = property(_is_rider)
 
 
-    def _is_ops_admin(self):
-        return self.role == self.OPERATIONS_ADMIN
+    # def _is_ops_admin(self):
+    #     return self.role == self.OPERATIONS_ADMIN
 
-    _is_ops_admin.boolean = True
-    is_ops_admin = property(_is_ops_admin)
+    # _is_ops_admin.boolean = True
+    # is_ops_admin = property(_is_ops_admin)
 
     class Meta:
         db_table = "users"
@@ -148,9 +154,10 @@ class Profile(TimeStampedModelMixin):
     - picture: URL to the user's profile picture
     """
 
-    user = models.ForeignKey(User,
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        related_name="profile",
         on_delete=models.CASCADE,
-        related_name='profile',
     )
     picture = models.URLField(blank=True)
     address = models.CharField(max_length=250,blank=True)

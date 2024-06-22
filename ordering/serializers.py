@@ -2,7 +2,7 @@ from .models import Order, OrderItem
 from common.validators import non_zero_quantity
 from rest_framework import serializers
 # The OrderSerializer class is a subclass of serializers.ModelSerializer.
-from ordering.models import Order, OrderItem, Shipping
+from ordering.models import Order, OrderItem, Shipping, Cart, CartItem
 from common.serializers import BaseModelSerializer
 from rest_framework import serializers
 from common.validators import non_zero_quantity
@@ -86,3 +86,25 @@ class ShippingSerializer(BaseModelSerializer):
         model = Shipping
 
 
+class CartSerializer(BaseModelSerializer):
+    """
+
+    """
+    class Meta(BaseModelSerializer.Meta):
+        model = Cart
+
+class CartItemSerializer(BaseModelSerializer):
+    """
+
+    """
+    class Meta(BaseModelSerializer.Meta):
+        model = CartItem
+
+class ReadCartItemSerializer(BaseModelSerializer):
+    """
+
+    """
+    product = ProductSerializer(read_only=True)
+
+    class Meta(BaseModelSerializer.Meta):
+        model = CartItem
