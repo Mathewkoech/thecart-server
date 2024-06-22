@@ -5,11 +5,14 @@ from common.views import (
     ImageBaseListView,
     ImageBaseDetailView,
 )
-from ordering.models import Order, OrderItem, Shipping
+from ordering.models import Order, OrderItem, Shipping, Cart, CartItem
 from ordering.serializers import (
     OrderSerializer,
     ReadOrderSerializer,
     ShippingSerializer,
+    CartItemSerializer,
+    CartSerializer,
+    ReadCartItemSerializer,
 )
 from rest_framework.response import Response
 from rest_framework import status
@@ -29,7 +32,7 @@ class OrderListView(ImageBaseListView):
 
     model = Order
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     read_serializer_class = ReadOrderSerializer
 
     def get_queryset(self):
@@ -61,7 +64,7 @@ class OrderDetailView(ImageBaseDetailView):
     """
     """
 
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     model = Order
     serializer_class = OrderSerializer
     read_serializer_class = ReadOrderSerializer
@@ -176,3 +179,58 @@ def confirm_order(request):
         order.order_status = "confirmed"
         order.save()
         return Response(status=status.HTTP_200_OK)
+
+
+class CartListView(BaseListView):
+    model = Cart
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Ensure a user can only see their own cart
+        return Cart.objects.filter(user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        # user can only create/post their own cart
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        serializer = self.get_serializer(cart)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+class CartDetailView(BaseDetailView):
+    model = Cart
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # User can only access their own cart
+        return get_object_or_404(Cart, user=self.request.user)
+
+class CartItemListView(BaseListView):
+    model = CartItem
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # User can only see their own cart items
+        return CartItem.objects.filter(cart__user=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        # Ensure a user can only add items to their own cart
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        request.data['cart'] = cart.id
+        return super().post(request, *args, **kwargs)
+
+class CartItemDetailView(BaseDetailView):
+    model = CartItem
+    serializer_class = CartItemSerializer
+    read_serializer_class = ReadCartItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return get_object_or_404(CartItem, id=self.kwargs['pk'], cart__user=self.request.user)
+
+    def delete(self, request, *args, **kwargs):
+        # Only allow the user to delete their own cart items
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)

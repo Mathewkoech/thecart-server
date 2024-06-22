@@ -25,6 +25,9 @@ from allauth.account.models import EmailAddress
 import datetime
 from django.utils import timezone
 from uuid import uuid4 as uuid
+from thecart_auth.models import Profile
+from ordering.models import Order,Shipping
+from products.models import Product
 
 
 # Create your views here.
@@ -32,23 +35,8 @@ from uuid import uuid4 as uuid
 def null_view(request):
     return Response(status=status.HTTP_400_BAD_REQUEST)
 
-class RegisterUSerView(RegisterView):
+class RegisterNonAdminUSerView(RegisterView):
     serializer_class = RegisterNonAdminUserSerializer
-
-class TokenBasedLoginView(LoginView):
-    """
-    A custom login view for users that require token based login
-    """
-
-    def login(self):
-        self.user = self.serializer.validated_data["user"]
-        self.token = create_token(self.token_model, self.user, self.serializer)
-
-    def get_response(self):
-        serializer = TokenSerializer(
-            instance=self.token, context={"request": self.request}
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UsersListView(GenericAPIView):
@@ -122,12 +110,16 @@ class UserDetailView(BaseDetailView):
             item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-from thecart_auth.models import Profile
-from ordering.models import Order,Shipping
-from products.models import Product
+
 @api_view(["GET"])
 def migrate_stuff(request):
     for item in Product.objects.all():
         item.base_uuid_id = item.user.uuid 
 
-    return Response({'item':"item"}, status=status.HTTP_200_OK)     
+    return Response({'item':"item"}, status=status.HTTP_200_OK)  
+
+@api_view(["GET"])
+# @permission_required([IsAuthenticated])
+def create_auth_token(request):
+    token, created = Token.objects.get_or_create(user=request.user)
+    return Response(token.key, status=status.HTTP_201_CREATED)   

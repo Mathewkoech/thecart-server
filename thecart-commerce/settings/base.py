@@ -2,6 +2,7 @@ from pathlib import Path
 from decouple import config, Csv
 import datetime
 import os
+from datetime import timedelta
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -57,7 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # Make sure this line is present
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'thecart-commerce.urls'
@@ -96,30 +97,56 @@ REST_FRAMEWORK = {
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=365*5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'JTI_CLAIM': 'jti',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(hours=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-ACCOUNT_ADAPTER = 'thecart_auth.adapter.CustomAccountAdapter'
-REST_USE_JWT = True
+USE_JWT = True
+JWT_AUTH_COOKIE = 'auth-cookie'
 OLD_PASSWORD_FIELD_ENABLED = False
+
+
 ACCOUNT_ADAPTER = 'thecart_auth.adapter.CustomAccountAdapter'
-ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'username'
-ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
+USERNAME_FIELD="username"
+ACCOUNT_LOGOUT_ON_GET = False
+ACCOUNT_EMAIL_VERIFICATION=None
 
 
-dj_rest_auth_SERIALIZERS = {
-    'PASSWORD_RESET_SERIALIZER': 'thecart_auth.serializers.CustomPasswordResetSerializer',
-    'JWT_SERIALIZER': 'thecart_auth.serializers.CustomJWTSerializer',
-    'USER_DETAILS_SERIALIZER': 'thecart_auth.serializers.UserSerializer',
-}
-
-dj_rest_auth_REGISTER_SERIALIZERS = {
-    'REGISTER_SERIALIZER': 'thecart_auth.serializers.CustomRegisterSerializer'
+REST_AUTH = {
+    'LOGIN_SERIALIZER': "thecart_auth.serializers.CustomLoginSerializer",
+    "PASSWORD_RESET_SERIALIZER": "thecart_auth.serializers.CustomPasswordResetSerializer",
+    "USER_DETAILS_SERIALIZER": "thecart_auth.serializers.ReadUserSerializer",
+    "PASSWORD_CHANGE_SERIALIZER": "thecart_auth.serializers.CustomPasswordChangeSerializer",
+    'USE_JWT': True,
+    "REGISTER_SERIALIZER": "thecart_auth.serializers.CustomRegisterSerializer"
 }
 
 AUTH_PASSWORD_VALIDATORS = [
