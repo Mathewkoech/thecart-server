@@ -13,6 +13,14 @@ from thecart_auth.serializers import (
 from common.jwt import get_jwt
 # from common.permissions import IsOpsAdmin
 from thecart_auth.models import User
+from django.utils import timezone
+
+def delete(self, request, *args, **kwargs):
+    item = self.get_object()
+    item.deleted_at = timezone.now().astimezone(utc)
+    item.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
 from common.views import BaseDetailView
 # email resend verification
 from allauth.account.signals import email_confirmed
@@ -97,8 +105,8 @@ class UserDetailView(BaseDetailView):
         item = self.get_object(request, pk)
         if hasattr(item, "is_deleted"):
             item.is_deleted = True
-            item.deleted_at = datetime.datetime.now(tz=timezone.utc)
-            item.modified_by = request.user
+            item.deleted_at = datetime.datetime.now()
+            item.modified_by = user
             new_email = str(item.id)+"@deleted.com"
             item.email = new_email
             email_address = EmailAddress.objects.get(user__exact=item.id)

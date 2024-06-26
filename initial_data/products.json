@@ -1,0 +1,266 @@
+[
+    {
+        "model": "products.group",
+        "pk": 1,
+        "fields": {
+            "name": "Health & Beauty",
+            "slug": "health-beauty"
+        }
+    },
+    {
+        "model": "products.group",
+        "pk": 2,
+        "fields": {
+            "name": "Home Appliances",
+            "slug": "home-appliances"
+        }
+    },
+    {
+        "model": "products.group",
+        "pk": 3,
+        "fields": {
+            "name": "Fashion",
+            "slug": "fashion"
+        }
+    },
+    {
+        "model": "products.group",
+        "pk": 4,
+        "fields": {
+            "name": "Phones and Tablets",
+            "slug": "phones-tablets"
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 1,
+        "fields": {
+            "name": "Skincare",
+            "slug": "skincare",
+            "group": 1
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 2,
+        "fields": {
+            "name": "Hair Care",
+            "slug": "hair-care",
+            "group": 1
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 3,
+        "fields": {
+            "name": "Kitchen Appliances",
+            "slug": "kitchen-appliances",
+            "group": 2
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 4,
+        "fields": {
+            "name": "Laundry Appliances",
+            "slug": "laundry-appliances",
+            "group": 2
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 5,
+        "fields": {
+            "name": "Men",
+            "slug": "men",
+            "group": 3
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 6,
+        "fields": {
+            "name": "Women",
+            "slug": "women",
+            "group": 3
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 7,
+        "fields": {
+            "name": "Smartphones",
+            "slug": "smartphones",
+            "group": 4
+        }
+    },
+    {
+        "model": "products.subgroup",
+        "pk": 8,
+        "fields": {
+            "name": "Tablets",
+            "slug": "tablets",
+            "group": 4
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 1,
+        "fields": {
+            "name": "Moisturizers",
+            "slug": "moisturizers",
+            "group": 1,
+            "subgroup": 1
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 2,
+        "fields": {
+            "name": "Cleansers",
+            "slug": "cleansers",
+            "group": 1,
+            "subgroup": 1
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 3,
+        "fields": {
+            "name": "Shampoos",
+            "slug": "shampoos",
+            "group": 1,
+            "subgroup": 2
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 4,
+        "fields": {
+            "name": "Conditioners",
+            "slug": "conditioners",
+            "group": 1,
+            "subgroup": 2
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 5,
+        "fields": {
+            "name": "Refrigerators",
+            "slug": "refrigerators",
+            "group": 2,
+            "subgroup": 3
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 6,
+        "fields": {
+            "name": "Microwaves",
+            "slug": "microwaves",
+            "group": 2,
+            "subgroup": 3
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 7,
+        "fields": {
+            "name": "Washing Machines",
+            "slug": "washing-machines",
+            "group": 2,
+            "subgroup": 4
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 8,
+        "fields": {
+            "name": "Dryers",
+            "slug": "dryers",
+            "group": 2,
+            "subgroup": 4
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 9,
+        "fields": {
+            "name": "Shirts",
+            "slug": "shirts",
+            "group": 3,
+            "subgroup": 5
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 10,
+        "fields": {
+            "name": "Pants",
+            "slug": "pants",
+            "group": 3,
+            "subgroup": 5
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 11,
+        "fields": {
+            "name": "Dresses",
+            "slug": "dresses",
+            "group": 3,
+            "subgroup": 6
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 12,
+        "fields": {
+            "name": "Shoes",
+            "slug": "shoes",
+            "group": 3,
+            "subgroup": 6
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 13,
+        "fields": {
+            "name": "Android Phones",
+            "slug": "android-phones",
+            "group": 4,
+            "subgroup": 7
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 14,
+        "fields": {
+            "name": "iPhones",
+            "slug": "iphones",
+            "group": 4,
+            "subgroup": 7
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 15,
+        "fields": {
+            "name": "Android Tablets",
+            "slug": "android-tablets",
+            "group": 4,
+            "subgroup": 8
+        }
+    },
+    {
+        "model": "products.category",
+        "pk": 16,
+        "fields": {
+            "name": "iPads",
+            "slug": "ipads",
+            "group": 4,
+            "subgroup": 8
+        }
+    }
+]
