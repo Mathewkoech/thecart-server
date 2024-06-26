@@ -13,34 +13,32 @@ from thecart_auth.serializers import UserSerializer
 
 
 # ordering serializers
-class OrderItemSerializer(BaseModelSerializer):
-    """
-    Serializer definition class for an OrderItem object
-    """
-
-    quantity = serializers.IntegerField(validators=[non_zero_quantity])
-    order = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    class Meta(BaseModelSerializer.Meta):
-        model = OrderItem
-
-
 class ReadOrderItemSerializer(BaseModelSerializer):
-    """
-    Read Serializer definition class for an OrderItem object
-    """
-
     product = ReadProductSerializer(required=True)
 
     class Meta(BaseModelSerializer.Meta):
         model = OrderItem
 
+class ReadOrderSerializer(BaseModelSerializer):
+    value = serializers.SerializerMethodField()
+    order_items = ReadOrderItemSerializer(many=True, read_only=True)
+
+    def get_value(self, obj):
+        return sum(item.value for item in obj.order_items.all())
+
+    class Meta(BaseModelSerializer.Meta):
+        model = Order
+
+class OrderItemSerializer(BaseModelSerializer):
+    quantity = serializers.IntegerField(validators=[non_zero_quantity])
+    order = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta(BaseModelSerializer.Meta):
+        model = OrderItem
+        exclude = []
+
 
 class OrderSerializer(BaseModelSerializer):
-    """
-    Serializer definition class for an Order object
-    """
-
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     order_items = OrderItemSerializer(many=True, required=True)
 
@@ -52,33 +50,16 @@ class OrderSerializer(BaseModelSerializer):
         with transaction.atomic():
             order = Order.objects.create(**validated_data)
             for item_data in items_data:
-                OrderItem.objects.create(**item_data, order=order)
-            return order
+                OrderItem.objects.create(order=order, **item_data)
+        return order
 
     def update(self, order, validated_data):
         items_data = validated_data.pop("order_items")
         with transaction.atomic():
             OrderItem.objects.filter(order=order).delete()
             for item_data in items_data:
-                # print(items_data.get("product"))
-                OrderItem.objects.create(**item_data, order=order)
+                OrderItem.objects.create(order=order, **item_data)
         return order
-
-
-class ReadOrderSerializer(BaseModelSerializer):
-    """
-    Read Serializer definition class for an Order object
-    """
-
-    value = serializers.SerializerMethodField()
-    order_items = ReadOrderItemSerializer(many=True, read_only=True)
-    delivered_by = UserSerializer(read_only=True)
-
-    def get_value(self, obj):
-        return sum(item.value for item in obj.order_items.all())
-
-    class Meta(BaseModelSerializer.Meta):
-        model = Order
 
 
 class ShippingSerializer(BaseModelSerializer):
@@ -87,23 +68,16 @@ class ShippingSerializer(BaseModelSerializer):
 
 
 class CartSerializer(BaseModelSerializer):
-    """
-
-    """
     class Meta(BaseModelSerializer.Meta):
         model = Cart
 
-class CartItemSerializer(BaseModelSerializer):
-    """
 
-    """
+class CartItemSerializer(BaseModelSerializer):
     class Meta(BaseModelSerializer.Meta):
         model = CartItem
 
-class ReadCartItemSerializer(BaseModelSerializer):
-    """
 
-    """
+class ReadCartItemSerializer(BaseModelSerializer):
     product = ProductSerializer(read_only=True)
 
     class Meta(BaseModelSerializer.Meta):

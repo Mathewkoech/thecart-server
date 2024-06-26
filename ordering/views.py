@@ -32,7 +32,7 @@ class OrderListView(ImageBaseListView):
 
     model = Order
     serializer_class = OrderSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     read_serializer_class = ReadOrderSerializer
 
     def get_queryset(self):
@@ -74,13 +74,13 @@ class ShippingListView(BaseListView):
     """
     """
 
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     model = Shipping
     serializer_class = ShippingSerializer
     read_serializer_class = ShippingSerializer
 
     def get_queryset(self):
-        if self.request.user.is_regular_user:
+        if self.request.user.is_authenticated and self.request.user.is_regular_user:
             self.filter_object = Q(user=self.request.user, is_deleted=False)
         else:
             self.filter_object = Q(is_deleted=False)
@@ -90,11 +90,11 @@ class ShippingListView(BaseListView):
     def get(self, request):
         all_status = request.GET.get("all", None)
         if all_status is not None:
-            queryset = self.get_queryset(request)
+            queryset = self.get_queryset()
             serializer = self.get_read_serializer_class()(queryset, many=True)
             return Response(serializer.data)
         else:
-            queryset = self.get_queryset(request)
+            queryset = self.get_queryset()
             page = self.paginate_queryset(queryset)
             serializer = self.get_read_serializer_class()(page, many=True)
             return self.get_paginated_response(serializer.data)

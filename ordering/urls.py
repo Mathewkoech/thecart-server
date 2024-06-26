@@ -14,7 +14,7 @@ from ordering.views import (
 )
 app_name = "ordering"
 urlpatterns = [
-    path("orders/", OrderListView.as_view(), name="orders"),
+    path("", OrderListView.as_view(), name="orders"),
     path("<uuid:pk>/", OrderDetailView.as_view(), name="order_detail"),
     path("post/", postorder_url, name="post_order"),
     path("shippings/", ShippingListView.as_view(), name="shipping"),

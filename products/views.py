@@ -25,15 +25,16 @@ from django.db import transaction
 from rest_framework.parsers import MultiPartParser, FileUploadParser
 from uuid import UUID
 
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class ProductListView(ImageBaseListView):
     """
     """
-
-    permission_classes = [AllowAny]
+    # permission_classes = [AllowAny]
     model = Product
     serializer_class = ProductSerializer
     read_serializer_class = ReadProductSerializer
+    parser_classes = [MultiPartParser, FormParser]  # Ensure parser classes are defined here
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -100,13 +101,10 @@ class ProductListView(ImageBaseListView):
             return self.get_paginated_response(serializer.data)
 
     def post(self, request):
-        """
-        """
-        parser_classes = [MultiPartParser]
         serializer = self.get_serializer_class()(
             data=request.data, context={"request": request}
         )
-        if serializer.is_valid(self):
+        if serializer.is_valid():
             slug = request.data.get("name")
             slug = slug.replace("/", " ")
             slug = slug.replace("&", "and")
@@ -114,11 +112,10 @@ class ProductListView(ImageBaseListView):
             slug = slug.replace(" ", "-")
             slug = slug.lower()
             user = request.user
-            image = request.FILES["image"] if "image" in request.FILES else False
+            image = request.FILES["image"] if "image" in request.FILES else None
             serializer.save(created_by=user, slug=slug, image=image)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ProductDetailView(ImageBaseDetailView):
     lookup_field = "slug"
