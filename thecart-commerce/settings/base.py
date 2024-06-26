@@ -40,6 +40,7 @@ THIRD_PARTY_APPS = [
     'allauth.socialaccount',
     'dj_rest_auth.registration',
     'rest_framework_simplejwt',
+    'corsheaders',
 ]
 
 LOCAL_APPS = [
@@ -51,6 +52,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -60,6 +62,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
 ]
+
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_WHITELIST = (
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+)
 
 ROOT_URLCONF = 'thecart-commerce.urls'
 
