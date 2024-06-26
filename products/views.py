@@ -166,20 +166,12 @@ class GroupListView(ImageBaseListView):
             queryset = self.model.objects.filter(self.filter_object)
         return queryset
 
-    def post(self, request):
-        """
-        """
-        serializer = self.get_serializer_class()(
-            data=request.data, context={"request": request}
-        )
-        if serializer.is_valid(self):
-            slug = request.data.get("name")
-            slug = slug.replace("/", " ")
-            slug = slug.replace("&", "and")
-            slug = slug.replace(",", "")
-            slug = slug.replace(" ", "-")
-            slug = slug.lower()
-            serializer.save(slug=slug,)
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            name = serializer.validated_data.get('name')
+            slug = name.replace("/", " ").replace("&", "and").replace(",", "").replace(" ", "-").lower()
+            serializer.save(slug=slug)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -124,7 +124,7 @@ class ShippingDetailView(BaseDetailView):
     serializer_class = ShippingSerializer
     read_serializer_class = ShippingSerializer
 
-
+#order creation
 @api_view(["POST"])
 def postorder_url(request):
     parser_classes = [MultiPartParser]
@@ -159,7 +159,7 @@ def postorder_url(request):
             return Response(status=status.HTTP_200_OK)
 
 
-@api_view(["POST"])
+@api_view(["POST"])# completing an order
 def complete_order(request):
     data = request.data
     if data is not None:
