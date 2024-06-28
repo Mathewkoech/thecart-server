@@ -27,9 +27,9 @@ class Product(FlaggedModelMixin, TimeStampedModelMixin):
     )
     brand = models.CharField(max_length=50, blank=True, null=True)
     available = models.DecimalField(max_digits=14, decimal_places=2, default=1)
-    group = models.ManyToManyField("products.Group", blank=True)
-    subgroup = models.ManyToManyField("products.SubGroup", blank=True)
-    category = models.ManyToManyField("products.Category", blank=True)
+    group = models.ForeignKey("Group", on_delete=models.CASCADE, null=True)
+    subgroup = models.ForeignKey("SubGroup", on_delete=models.CASCADE, null=True, blank=True)
+    category = models.ForeignKey("Category", on_delete=models.CASCADE, blank=True, null=True) 
 
     def __str__(self):
         return self.name
@@ -41,7 +41,7 @@ class Product(FlaggedModelMixin, TimeStampedModelMixin):
 
 class Group(FlaggedModelMixin, TimeStampedModelMixin):
     name = models.CharField(max_length=250, unique=True)
-    slug = models.CharField(max_length=250, null=True, unique=True)
+    # slug = models.CharField(max_length=250, null=True, unique=True)
 
     def __str__(self):
         return self.name
@@ -52,7 +52,7 @@ class Group(FlaggedModelMixin, TimeStampedModelMixin):
 
 class SubGroup(FlaggedModelMixin, TimeStampedModelMixin):
     name = models.CharField(max_length=250, unique=True)
-    slug = models.CharField(max_length=250, null=True, unique=True)
+    # slug = models.CharField(max_length=250, null=True, unique=True)
     group = models.ForeignKey("Group", on_delete=models.CASCADE, null=True)
 
     def __str__(self):
@@ -65,7 +65,7 @@ class SubGroup(FlaggedModelMixin, TimeStampedModelMixin):
 
 class Category(FlaggedModelMixin, TimeStampedModelMixin):
     name = models.CharField(max_length=250)
-    slug = models.CharField(max_length=250, null=True)
+    # slug = models.CharField(max_length=250, null=True)
     group = models.ForeignKey("Group", on_delete=models.CASCADE, null=True)
     subgroup = models.ForeignKey("SubGroup", on_delete=models.CASCADE, null=True)
 

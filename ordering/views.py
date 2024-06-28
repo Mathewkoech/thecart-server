@@ -32,7 +32,7 @@ class OrderListView(ImageBaseListView):
 
     model = Order
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [AllowAny]
     read_serializer_class = ReadOrderSerializer
 
     def get_queryset(self):

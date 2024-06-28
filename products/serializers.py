@@ -1,7 +1,7 @@
 from products.models import Product, Group, SubGroup, Category
 from common.serializers import BaseModelSerializer
 from rest_framework import serializers
-
+from django.conf import settings
 
 class GroupSerializer(BaseModelSerializer):
     """
@@ -55,14 +55,17 @@ class ProductSerializer(BaseModelSerializer):
     """
 
     """
-    image_url = serializers.SerializerMethodField('get_image_url')
+    
+    # group = GroupSerializer(many=True)
+    # category = serializers.PrimaryKeyRelatedField(many=True, queryset=Category.objects.all(), required=False)
+    # subgroup = serializers.PrimaryKeyRelatedField(many=True, queryset=SubGroup.objects.all())
+    # image_url = serializers.SerializerMethodField()
 
     class Meta(BaseModelSerializer.Meta):
         model = Product
 
-    def get_image_url(self, obj):
-        request = self.context.get('request')
-        return request.build_absolute_uri(obj.image.url)
+    def __init__(self, instance=None, data=None, request=None, **kwargs):
+        super().__init__(instance, data, **kwargs)
 
 
 class ReadProductSerializer(BaseModelSerializer):
@@ -72,6 +75,13 @@ class ReadProductSerializer(BaseModelSerializer):
     group = GroupSerializer(many=True, read_only=True)
     subgroup = SubGroupSerializer(many=True, read_only=True)
     category = CategorySerializer(many=True, read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            image_url = obj.image.url
+            return f"{settings.MEDIA_URL}{image_url}"
+        return None
 
     class Meta(BaseModelSerializer.Meta):
         model = Product

@@ -99,7 +99,7 @@ class ProductListView(ImageBaseListView):
                 page, many=True, context={"request": request}
             )
             return self.get_paginated_response(serializer.data)
-
+    @permission_classes([IsAuthenticated])
     def post(self, request):
         serializer = self.get_serializer_class()(
             data=request.data, context={"request": request}
@@ -153,14 +153,16 @@ class GroupListView(ImageBaseListView):
     model = Group
     serializer_class = GroupSerializer
     read_serializer_class = GroupSerializer
-    # permission_classes = [AllowAny]
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
-        item_name = self.request.GET.get("name", None)
-        queryset = self.model.objects.filter(Q(is_deleted=False))
-        if item_name is not None:
-            self.filter_object = Q(name__contains=item_name)
-            queryset = self.model.objects.filter(self.filter_object)
+        queryset = super().get_queryset()
+        q = self.request.GET.get("q", None)
+        kwargs = {}
+        if q is not None:
+            kwargs["name__icontains"] = q
+        if len(kwargs) > 0:
+            queryset = self.model.objects.filter(**kwargs)
         return queryset
 
     def post(self, request, *args, **kwargs):
