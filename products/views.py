@@ -169,8 +169,8 @@ class GroupListView(ImageBaseListView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             name = serializer.validated_data.get('name')
-            slug = name.replace("/", " ").replace("&", "and").replace(",", "").replace(" ", "-").lower()
-            serializer.save(slug=slug)
+            # slug = name.replace("/", " ").replace("&", "and").replace(",", "").replace(" ", "-").lower()
+            serializer.save(name=name)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

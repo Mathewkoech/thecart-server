@@ -3,132 +3,69 @@ from common.models import TimeStampedModelMixin, FlaggedModelMixin
 from thecart_auth.models import User
 from common.utils import generate_random_number
 from products.models import Product
-
-
-class Order(FlaggedModelMixin, TimeStampedModelMixin):
-    notes = models.TextField(blank=True, null=True)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="user_order", null=True
-    )
-    order_number = models.CharField(
-        blank=False,
-        null=False,
-        default=generate_random_number,
-        unique=True,
-        max_length=30,
-    )
-    CONFIRMED = "confirmed"
-    NOT_CONFIRMED = "not_confirmed"
-    PENDING = "Pending"
-    SHIPPED = "Shipped"
-    STATUS_CHOICES = (
-        (PENDING, "Pending"),
-        (SHIPPED, "Shipped"),
-    )
-    ORDER_CHOICES = (
-        (CONFIRMED, "confirmed"),
-        (NOT_CONFIRMED, "not_confirmed"),
-    )
-    status = models.CharField(
-        blank=False, null=False, choices=STATUS_CHOICES, default=PENDING, max_length=20,
-    )
-    order_status = models.CharField(
-        blank=False, null=True, choices=ORDER_CHOICES, default=NOT_CONFIRMED, max_length=20,
-    )
-    total = models.DecimalField(max_digits=14, decimal_places=4, null=True)
-    discount = models.DecimalField(max_digits=14, decimal_places=4, null=True)
-    total_after_discount = models.DecimalField(
-        max_digits=14, decimal_places=4, null=True
-    )
-    items = models.PositiveIntegerField(default=1)
-    first_name = models.CharField(max_length=250, blank=True)
-    last_name = models.CharField(max_length=250, blank=True)
-    email = models.CharField(max_length=250, blank=True)
-    phone = models.CharField(max_length=250, blank=True)
-    address = models.CharField(max_length=250, blank=True)
-    delivered_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="rider", null=True
-    )
-    shipping = models.ForeignKey(
-        "Shipping", on_delete=models.CASCADE, related_name="order_shipping", null=True
-    )
-
-    def __str__(self):
-        return self.first_name + " " + self.last_name + " " + self.order_number
-
-    class Meta:
-        db_table = "order"
-        ordering = ["-created_at"]
-
-
-class OrderItem(TimeStampedModelMixin):
-    """
-    A class definition for an order item.
-
-    """
-
-    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
-    quantity = models.DecimalField(max_digits=14, decimal_places=4, null=True)
-    price = models.DecimalField(
-        max_digits=14, decimal_places=4, editable=False, default=0
-    )
-    value = models.DecimalField(
-        max_digits=14, decimal_places=4, editable=False, default=0
-    )
-    order = models.ForeignKey(
-        "Order", on_delete=models.CASCADE, related_name="order_items", null=False,
-    )
-
-    def __str__(self):
-        return str(self.order)
-
-    class Meta:
-        verbose_name_plural = "Order Items"
-        db_table = "order_item"
-
-    def save(self, *args, **kwargs):
-        """
-        Override default save method to populate value field
-        """
-        self.price = self.product.price
-        self.value = self.price * self.quantity
-        return super().save(*args, **kwargs)
-
+from django.db import models
+from django.conf import settings
+from django.contrib.auth.models import User
 
 class Shipping(FlaggedModelMixin, TimeStampedModelMixin):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="user_shipping",
-    )
-    postal_code = models.CharField(max_length=250, blank=True)
-    address = models.CharField(max_length=250, blank=True)
-    town = models.CharField(max_length=250, blank=True)
-    default = models.BooleanField(default=False)
-    order = models.ForeignKey(
-        Order, on_delete=models.CASCADE, null=True, related_name="order_shipping"
-    )
-
-    def __str__(self):
-        return self.user
-
-    class Meta:
-        db_table = "shipping"
-
-
-class Cart(FlaggedModelMixin, TimeStampedModelMixin):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    """
+    Represents a user's shipping address.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    address = models.CharField(max_length=255)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Cart of {self.user.username}"
+        return f"{self.user.username}'s Shipping Address"
 
-class CartItem(FlaggedModelMixin, TimeStampedModelMixin):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+class Order(TimeStampedModelMixin, FlaggedModelMixin):
+    """
+    Represents a confirmed order placed by a user.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('completed', 'Completed'),
+        ('canceled', 'Canceled'),
+    )
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    billing_address = models.TextField()
+    shipping_address = models.ForeignKey(Shipping, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Order {self.id} - {self.status}"
+
+class OrderItem(TimeStampedModelMixin):
+    """
+    """
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.quantity}x {self.product.name} - {self.order}"
+
+class CartItem(models.Model):
+    """
+    Represents an item added to a user's cart.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
-
+        return f"{self.quantity}x {self.product}"

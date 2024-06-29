@@ -5,29 +5,47 @@ from common.views import (
     ImageBaseListView,
     ImageBaseDetailView,
 )
-from ordering.models import Order, OrderItem, Shipping, Cart, CartItem
+from ordering.models import Order, OrderItem, Shipping, CartItem
 from ordering.serializers import (
     OrderSerializer,
     ReadOrderSerializer,
     ShippingSerializer,
     CartItemSerializer,
-    CartSerializer,
     ReadCartItemSerializer,
 )
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from products.models import Product
 from django.core.mail import EmailMultiAlternatives
 from rest_framework.parsers import FileUploadParser, MultiPartParser
 import json
 from thecart_auth.models import User
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 
+class OrderCreateView(APIView):
+    """
+    Create an order
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = OrderSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            if not serializer.validated_data['items']:  # Check if items list is empty
+                return Response({"error": "Order must have at least one item"}, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save(created_by=user, user=user, first_name=user.first_name, last_name=user.last_name, email=email)  # Set user based on authenticated user
+            return Response(serializer.data, status=HTTP_201_CREATED)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 class OrderListView(ImageBaseListView):
     """
+    Getting all orders
     """
 
     model = Order
@@ -44,24 +62,18 @@ class OrderListView(ImageBaseListView):
         queryset = self.model.objects.filter(self.filter_object)
         return queryset
 
-    def post(self, request):
-        """
-        """
-
-        serializer = self.get_serializer_class()(
-            data=request.data, context={"role": request.user.role}
-        )
-        if serializer.is_valid():
-            user = request.user
-            serializer.save(
-                created_by=user, user=user,
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    @permission_classes([IsAuthenticated])
+    def delete(self, request, pk=None):
+        try:
+            order = Order.objects.get(pk=pk)
+            order.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Order.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 class OrderDetailView(ImageBaseDetailView):
     """
+    Getting a single order
     """
 
     # permission_classes = [IsAuthenticated]
@@ -70,8 +82,10 @@ class OrderDetailView(ImageBaseDetailView):
     read_serializer_class = ReadOrderSerializer
 
 
+
 class ShippingListView(BaseListView):
     """
+    Getting all shipping
     """
 
     # permission_classes = [IsAuthenticated]
@@ -80,6 +94,9 @@ class ShippingListView(BaseListView):
     read_serializer_class = ShippingSerializer
 
     def get_queryset(self):
+        """
+        
+        """
         if self.request.user.is_authenticated and self.request.user.is_regular_user:
             self.filter_object = Q(user=self.request.user, is_deleted=False)
         else:
@@ -181,44 +198,64 @@ def confirm_order(request):
         return Response(status=status.HTTP_200_OK)
 
 
-class CartListView(BaseListView):
-    model = Cart
-    serializer_class = CartSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # Ensure a user can only see their own cart
-        return Cart.objects.filter(user=self.request.user)
-
-    def post(self, request, *args, **kwargs):
-        # user can only create/post their own cart
-        cart, created = Cart.objects.get_or_create(user=request.user)
-        serializer = self.get_serializer(cart)
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-
-class CartDetailView(BaseDetailView):
-    model = Cart
-    serializer_class = CartSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        # User can only access their own cart
-        return get_object_or_404(Cart, user=self.request.user)
-
 class CartItemListView(BaseListView):
     model = CartItem
     serializer_class = CartItemSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # User can only see their own cart items
         return CartItem.objects.filter(cart__user=self.request.user)
 
-    def post(self, request, *args, **kwargs):
-        # Ensure a user can only add items to their own cart
-        cart, created = Cart.objects.get_or_create(user=request.user)
-        request.data['cart'] = cart.id
-        return super().post(request, *args, **kwargs)
+    def post(self, request):
+        # Get product ID from request data
+        product_id = request.data.get('product_id')
+
+        # Validate data
+        if not product_id:
+            return Response({'error': 'Missing product ID'}, status=HTTP_400_BAD_REQUEST)
+
+        product = Product.objects.get(pk=product_id)
+
+        # Get user (if available)
+        user = request.user  # This will be the authenticated user if logged in
+
+        # Create a session key if it doesn't exist
+        request.session.set_expiry(0)  # Set session cookie expiry to browser session
+
+        # Retrieve cart items from session (or create an empty list)
+        cart_items = request.session.get('cart', [])
+
+        # Check if item already exists in cart (based on product ID)
+        existing_item = next((item for item in cart_items if item['product_id'] == product_id), None)
+
+        if existing_item:
+            existing_item['quantity'] += 1
+        else:
+            cart_items.append({
+                'product_id': product_id,
+                'quantity': 1,
+            })
+
+        # Update session with cart items
+        request.session['cart'] = cart_items
+
+        return Response({'message': 'Item added to cart successfully'}, status=HTTP_200_OK)
+
+    def remove_cart_item(self, request, product_id):
+        """
+        Remove cart item based on user and product ID.
+        """
+        if request.user.is_authenticated:
+            # Remove item from database for authenticated users
+            CartItem.objects.filter(user=request.user, product_id=product_id).delete()
+        else:
+            # Remove item from session cart list for anonymous users
+            cart_items = request.session.get('cart', [])
+            updated_cart = [item for item in cart_items if item['product_id'] != product_id]
+            request.session['cart'] = updated_cart
+
+
 
 class CartItemDetailView(BaseDetailView):
     model = CartItem

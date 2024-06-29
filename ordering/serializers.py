@@ -2,7 +2,7 @@ from .models import Order, OrderItem
 from common.validators import non_zero_quantity
 from rest_framework import serializers
 # The OrderSerializer class is a subclass of serializers.ModelSerializer.
-from ordering.models import Order, OrderItem, Shipping, Cart, CartItem
+from ordering.models import Order, OrderItem, Shipping, CartItem
 from common.serializers import BaseModelSerializer
 from rest_framework import serializers
 from common.validators import non_zero_quantity
@@ -45,6 +45,11 @@ class OrderSerializer(BaseModelSerializer):
     class Meta(BaseModelSerializer.Meta):
         model = Order
 
+    def validate_status(self, attrs):
+        if attrs != Order.PENDING:
+            raise serializers.ValidationError("Order status must be 'Pending' during creation.")
+        return attrs
+
     def create(self, validated_data):
         items_data = validated_data.pop("order_items")
         with transaction.atomic():
@@ -65,11 +70,6 @@ class OrderSerializer(BaseModelSerializer):
 class ShippingSerializer(BaseModelSerializer):
     class Meta(BaseModelSerializer.Meta):
         model = Shipping
-
-
-class CartSerializer(BaseModelSerializer):
-    class Meta(BaseModelSerializer.Meta):
-        model = Cart
 
 
 class CartItemSerializer(BaseModelSerializer):

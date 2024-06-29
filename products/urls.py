@@ -12,7 +12,7 @@ from products.views import (
 
 app_name = "products"
 urlpatterns = [
-    path("items", ProductListView.as_view(), name="products"),
+    path("items/", ProductListView.as_view(), name="products"),
     path(
         "items/<str:slug>/", ProductDetailView.as_view(),
         name="product_detail"
