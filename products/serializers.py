@@ -72,9 +72,9 @@ class ReadProductSerializer(BaseModelSerializer):
     """
 
     """
-    group = GroupSerializer(many=True, read_only=True)
-    subgroup = SubGroupSerializer(many=True, read_only=True)
-    category = CategorySerializer(many=True, read_only=True)
+    group = GroupSerializer(read_only=True)
+    subgroup = SubGroupSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
     image_url = serializers.SerializerMethodField()
 
     def get_image_url(self, obj):
