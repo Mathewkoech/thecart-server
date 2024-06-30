@@ -118,35 +118,26 @@ class ProductListView(ImageBaseListView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProductDetailView(ImageBaseDetailView):
-    lookup_field = "slug"
-    """
-    """
-    permission_classes = [AllowAny]
     model = Product
     serializer_class = ProductSerializer
-    read_serializer_class = ProductSerializer
+    read_serializer_class = ReadProductSerializer
 
-    def get_object(self, request, slug):
-        slug = self.kwargs.get(self.lookup_field)
-        queryset = get_object_or_404(Product, slug=slug)
-        return queryset
+    def get(self, request, pk=None):
+        return super().get(request, pk)
 
-    def get(self, request, slug):
-        item = self.get_object(request, slug)
-        serializer = self.get_read_serializer_class()(
-            item, context={"request": request}
-        )
-        return Response(serializer.data)
-
-    def put(self, request, slug):
-        item = self.get_object(request, slug)
+    def put(self, request, pk=None):
+        parser_classes = [MultiPartParser]
+        item = self.get_object(request, pk)
         serializer = self.get_serializer_class()(
-            item, data=request.data, partial=True, context={"request": request}
+            item, data=request.data, partial=True, context={'request':request}
         )
         if serializer.is_valid():
             serializer.save(modified_by=request.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk=None):
+        return super().delete(request, pk)
 
 
 class GroupListView(ImageBaseListView):

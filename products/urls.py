@@ -14,7 +14,7 @@ app_name = "products"
 urlpatterns = [
     path("items/", ProductListView.as_view(), name="products"),
     path(
-        "items/<str:slug>/", ProductDetailView.as_view(),
+        "items/<uuid:pk>/", ProductDetailView.as_view(),
         name="product_detail"
     ),
     path("groups/", GroupListView.as_view(), name="groups"),
