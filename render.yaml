@@ -1,0 +1,22 @@
+databases:
+  - name: thecart-psql
+    plan: free
+    databaseName: thecart
+    user: thecart_user
+
+services:
+  - type: web
+    plan: free
+    name: thecart-commerce
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: thecart
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
