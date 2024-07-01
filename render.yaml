@@ -1,7 +1,7 @@
 databases:
-  - name: thecart-psql
+  - name: thecart
     plan: free
-    databaseName: thecart
+    databaseName: thecart-psql
     user: thecart_user
 
 services:
