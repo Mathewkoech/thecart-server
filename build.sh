@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Exit on error
+source venv/bin/activate
 set -o errexit
 apt-get update
 apt-get install -y build-essential libssl-dev
