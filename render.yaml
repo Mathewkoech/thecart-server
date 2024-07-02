@@ -2,7 +2,7 @@ services:
   - type: web
     plan: free
     name: thecart-commerce
-    runtime: python
+    runtime: python3
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
     envVars:
