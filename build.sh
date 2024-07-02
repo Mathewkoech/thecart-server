@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
+
 # Exit on error
+set -o errexit
+
+# Ensure venv exists and activate it
 python3.10 -m venv venv
 source venv/bin/activate
-set -o errexit
+
+# Update and install necessary packages
 apt-get update
 apt-get install -y build-essential libssl-dev
 
-# Modify this line as needed for your package manager (pip, poetry, etc.)
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Convert static asset files
+# Collect static files
 python manage.py collectstatic --no-input
 
-# Apply any outstanding database migrations
+# Apply migrations
 python manage.py migrate
