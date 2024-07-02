@@ -4,7 +4,7 @@
 set -o errexit
 
 # Ensure venv exists and activate it
-python3.10 -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate
 
 # Update and install necessary packages
@@ -15,7 +15,7 @@ apt-get install -y build-essential libssl-dev
 pip install -r requirements.txt
 
 # Collect static files
-python manage.py collectstatic --no-input
+python3.11 manage.py collectstatic --no-input
 
 # Apply migrations
-python manage.py migrate
+python3.11 manage.py migrate
