@@ -10,7 +10,9 @@ services:
         - name: DEBIAN_FRONTEND
           value: noninteractive
       packages:
-        - python3.10-venv
+        - python3.10-venv  # Ensure venv package is available if needed
+    postBuildSteps:
+      - rm -rf /var/lib/apt/lists/* 
     envVars:
       - key: SECRET_KEY
         fromService:

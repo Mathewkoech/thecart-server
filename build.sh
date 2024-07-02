@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Exit on error
+python3.10 -m venv venv
 source venv/bin/activate
 set -o errexit
 apt-get update
