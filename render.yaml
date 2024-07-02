@@ -1,7 +1,7 @@
 databases:
-  - name: thecart
+  - name: thecart-psql
     plan: free
-    databaseName: thecart-psql
+    databaseName: thecart
     user: thecart_user
 
 services:
@@ -14,9 +14,31 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: thecart
+          name: thecart-psql
           property: connectionString
       - key: SECRET_KEY
-        generateValue: true
+        fromService:
+          name: thecart-commerce
+          property: envVars.SECRET_KEY
+      - key: POSTGRES_USER
+        fromService:
+          name: thecart-psql
+          property: envVars.POSTGRES_USER
+      - key: POSTGRES_PASSWORD
+        fromService:
+          name: thecart-psql
+          property: envVars.POSTGRES_PASSWORD
+      - key: HOSTNAME
+        fromService:
+          name: thecart-psql
+          property: envVars.HOSTNAME
+      - key: DB_PORT
+        fromService:
+          name: thecart-psql
+          property: envVars.DB_PORT
+      - key: POSTGRES_DB
+        fromService:
+          name: thecart-psql
+          property: envVars.POSTGRES_DB
       - key: WEB_CONCURRENCY
         value: 4
