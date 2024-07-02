@@ -6,13 +6,9 @@ services:
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
     buildEnvironment:
-      secrets:
-        - name: DEBIAN_FRONTEND
-          value: noninteractive
-      packages:
-        - python3.11-venv  # Ensure venv package is available if needed
-    postBuildSteps:
-      - rm -rf /var/lib/apt/lists/* 
+      postBuildSteps:
+        - sudo chmod -R 755 /var/lib/apt/lists
+        - sudo chmod -R 644 /var/lib/apt/lists/partial
     envVars:
       - key: SECRET_KEY
         fromService:

@@ -7,6 +7,7 @@ set -o errexit
 python3.11 -m venv venv
 source venv/bin/activate
 
+rm -rf /var/lib/apt/lists/*
 # Update and install necessary packages
 apt-get update
 apt-get install -y build-essential libssl-dev
