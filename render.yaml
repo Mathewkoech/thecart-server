@@ -1,9 +1,3 @@
-databases:
-  - name: thecart-psql
-    plan: free
-    databaseName: thecart
-    user: thecart_user
-
 services:
   - type: web
     plan: free
@@ -12,33 +6,13 @@ services:
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: thecart-psql
-          property: connectionString
       - key: SECRET_KEY
         fromService:
           name: thecart-commerce
-          property: envVars.SECRET_KEY
-      - key: POSTGRES_USER
+          property: SECRET_KEY
+      - key: DATABASE_URL
         fromService:
-          name: thecart-psql
-          property: envVars.POSTGRES_USER
-      - key: POSTGRES_PASSWORD
-        fromService:
-          name: thecart-psql
-          property: envVars.POSTGRES_PASSWORD
-      - key: HOSTNAME
-        fromService:
-          name: thecart-psql
-          property: envVars.HOSTNAME
-      - key: DB_PORT
-        fromService:
-          name: thecart-psql
-          property: envVars.DB_PORT
-      - key: POSTGRES_DB
-        fromService:
-          name: thecart-psql
-          property: envVars.POSTGRES_DB
+          name: thecart-commerce
+          property: DATABASE_URL
       - key: WEB_CONCURRENCY
-        value: 4
+        value: "4"
