@@ -6,9 +6,9 @@ services:
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
     buildEnvironment:
-      postBuildSteps:
-        - sudo chmod -R 755 /var/lib/apt/lists
-        - sudo chmod -R 644 /var/lib/apt/lists/partial
+      packages:
+        - libsystemd-dev  # Adjust package names based on your Linux distribution
+        - libsystemd-journal-dev
     envVars:
       - key: SECRET_KEY
         fromService:
