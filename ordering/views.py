@@ -306,38 +306,44 @@ class CartItemListView(BaseListView):
         return Response(serialized_cart_items, status=status.HTTP_200_OK)
 
     def post(self, request):
-        product_id = request.data.get('product_id')
-        quantity = request.data.get('quantity', 1)  # Default quantity to 1 if not provided by user
+        items = request.data
 
-        if not product_id:
-            return Response({'error': 'Missing product ID'}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(items, list):
+            return Response({'error': 'Request body must be a list of items'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            product = Product.objects.get(pk=product_id)
-        except Product.DoesNotExist:
-            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+        for item in items:
+            product_id = item.get('product_id')
+            quantity = item.get('quantity', 1)  # Default quantity to 1 if not provided by user
 
-        # Check if user is authenticated
-        if request.user.is_authenticated:
-            # Add to cart using CartItem model
-            cart_item, created = CartItem.objects.get_or_create(
-                user=request.user, product=product,
-                defaults={'quantity': quantity}
-            )
-            if not created:
-                cart_item.quantity += quantity
-                cart_item.save()
-        else:
-            # Add to session-based cart
-            cart_items = request.session.get('cart', [])
-            existing_item = next((item for item in cart_items if item['product_id'] == product_id), None)
-            if existing_item:
-                existing_item['quantity'] += quantity
+            if not product_id:
+                return Response({'error': 'Missing product ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                product = Product.objects.get(pk=product_id)
+            except Product.DoesNotExist:
+                return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Check if user is authenticated
+            if request.user.is_authenticated:
+                # Add to cart using CartItem model
+                cart_item, created = CartItem.objects.get_or_create(
+                    user=request.user, product=product,
+                    defaults={'quantity': quantity}
+                )
+                if not created:
+                    cart_item.quantity += quantity
+                    cart_item.save()
             else:
-                cart_items.append({'product_id': product_id, 'quantity': quantity})
-            request.session['cart'] = cart_items
+                # Add to session-based cart
+                cart_items = request.session.get('cart', [])
+                existing_item = next((i for i in cart_items if i['product_id'] == product_id), None)
+                if existing_item:
+                    existing_item['quantity'] += quantity
+                else:
+                    cart_items.append({'product_id': product_id, 'quantity': quantity})
+                request.session['cart'] = cart_items
 
-        return Response({'message': 'Item added to cart successfully'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Items added to cart successfully'}, status=status.HTTP_200_OK)
 
     def remove_cart_item(self, request, product_id):
         """
