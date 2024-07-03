@@ -4,19 +4,18 @@
 set -o errexit
 
 # Ensure venv exists and activate it
-python3.11 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 
-rm -rf /var/lib/apt/lists/*
 # Update and install necessary packages
 apt-get update
-apt-get install -y libsystemd-dev libsystemd-journal-dev build-essential libssl-dev
+apt-get install -y libxml2-dev libxslt1-dev build-essential libssl-dev
 
 # Install Python dependencies
 pip install -r requirements.txt
 
 # Collect static files
-python3.11 manage.py collectstatic --no-input
+python manage.py collectstatic --no-input
 
 # Apply migrations
-python3.11 manage.py migrate
+python manage.py migrate

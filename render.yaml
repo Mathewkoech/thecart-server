@@ -6,9 +6,10 @@ services:
     buildCommand: "./build.sh"
     startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
     buildEnvironment:
-      packages:
-        - libsystemd-dev  # Adjust package names based on your Linux distribution
-        - libsystemd-journal-dev
+      buildEnvironment:
+      secrets:
+        - name: DEBIAN_FRONTEND
+          value: noninteractive
     envVars:
       - key: SECRET_KEY
         fromService:

@@ -38,51 +38,33 @@ class ProductListView(ImageBaseListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        group = self.request.GET.get("group", None)
-        category = self.request.GET.get("category", None)
-        item_name = self.request.GET.get("name", None)
-        item_id = self.request.GET.get("item_id", None)
-        subgroup = self.request.GET.get("subgroup", None)
-        query = self.request.GET.get("query", None)
-        filter_price = self.request.GET.get("filter_price", None)
-        if filter_price is not None:
-            startprice = float(filter_price.split("-")[0])
-            endprice = float(filter_price.split("-")[1])
-        if group is not None and filter_price is not None:
-            group_id = Group.objects.get(slug=group).id
-            queryset = self.model.objects.filter(
-                group__id=group_id, price__lte=endprice, price__gte=startprice
-            )
-        elif group is not None and subgroup is not None:
-            group_id = Group.objects.get(slug=group).id
-            subgroup_id = SubGroup.objects.get(slug=subgroup).id
-            queryset = self.model.objects.filter(
-                group__id=group_id, subgroup__id=subgroup_id
-            )
-        elif subgroup is not None and filter_price is not None:
-            subgroup_id = SubGroup.objects.get(slug=subgroup).id
-            queryset = self.model.objects.filter(
-                subgroup__id=subgroup_id, price__lte=endprice, price__gte=startprice
-            )
-        elif group is not None:
-            group_id = Group.objects.get(slug=group).id
-            queryset = self.model.objects.filter(group__id=group_id)
-        elif item_id is not None:
-            queryset = self.model.objects.filter(pk=item_id)
-        elif subgroup is not None:
-            subgroup_id = SubGroup.objects.get(slug=subgroup).id
-            queryset = self.model.objects.filter(subgroup__id=subgroup_id)
-        elif query is not None:
-            queryset = self.model.objects.filter(name__icontains=query)
-        elif item_name is not None:
-            self.filter_object = Q(name__icontains=item_name)
-            queryset = self.model.objects.filter(self.filter_object)
-        elif category is not None:
-            self.filter_object = Q(category__id=category)
-            queryset = self.model.objects.filter(self.filter_object)
-        else:
-            queryset = queryset
+
+        name = self.request.GET.get("name")
+        category_name = self.request.GET.get("category_name")
+        group_name = self.request.GET.get("group_name")
+        filter_price = self.request.GET.get("filter_price")
+
+        filters = Q()
+
+        if name:
+            filters |= Q(name__icontains=name)
+
+        if category_name:
+            filters |= Q(category__name__icontains=category_name)
+
+        if group_name:
+            filters |= Q(group__name__icontains=group_name)
+
+        queryset = queryset.filter(filters)
+
+        if filter_price:
+            start_price, end_price = map(float, filter_price.split("-"))
+            queryset = queryset.filter(price__gte=start_price, price__lte=end_price)
+
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get(self, request):
         all_status = request.GET.get("all", None)
