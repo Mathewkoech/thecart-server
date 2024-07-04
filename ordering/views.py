@@ -132,32 +132,33 @@ class CheckoutOrderView(APIView):
 
     def post(self, request, order_id):
         try:
-            order = Order.objects.get(id=order_id, user=request.user)
+            order = Order.objects.get(pk=order_id, user=request.user)
         except Order.DoesNotExist:
-            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Order not found'}, status=HTTP_404_NOT_FOUND)
+        user_orders = Order.objects.filter(user=request.user)
+        if not user_orders.exists():
+            return Response({'error': 'No orders found for checkout. Please create an order first.'}, status=HTTP_400_BAD_REQUEST)
 
-        required_fields = ["address", "city", "state", "zip_code", "payment_method", "contact_email", "contact_phone"]
+        required_fields = ["address", "city", "state", "zip_code", "contact_email", "contact_phone"]
         for field in required_fields:
             if field not in request.data:
-                return Response({f'error': f'{field} is required'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({f'error': f'{field} is required'}, status=HTTP_400_BAD_REQUEST)
 
-        # Create or update shipping address
-        shipping_address = Shipping.objects.create(
+        user = request.user
+        shipping_address = Shipping(
+            user=user,
             address=request.data["address"],
             city=request.data["city"],
             state=request.data["state"],
             zip_code=request.data["zip_code"]
-        )
+            )
+        shipping_address.save()  # Save the ShippingAddress object first (optional)
 
-        # Update the order with payment method and contact details
-        order.payment_method = request.data["payment_method"]
-        order.contact_email = request.data["contact_email"]
-        order.contact_phone = request.data["contact_phone"]
         order.shipping_address = shipping_address
-        order.status = "shipping"
         order.save()
 
-        return Response({'message': 'Order processed successfully wait for delivery within 24 hours.'}, status=status.HTTP_200_OK)
+
+        return Response({'message': 'Order checkout successful! Wait for delivery within 24 hours.'}, status=status.HTTP_200_OK)
 
 
 
