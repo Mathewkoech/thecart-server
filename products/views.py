@@ -38,33 +38,36 @@ class ProductListView(ImageBaseListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        q = self.request.GET.get("q", None)
+        group = self.request.GET.get("group", None)
+        subgroup = self.request.GET.get("subgroup", None)
+        category = self.request.GET.get("category", None)
+        # brand = self.request.GET.get("brand", None)
+        kwargs = {}
+        kwargs_ors = None
+        if q is not None:
+            kwargs_ors = Q(name__icontains=q)
+        if group is not None:
+            kwargs['group_id'] = group
+        if subgroup is not None:
+            kwargs['subgroup_id'] = subgroup
+        if category is not None:
+            kwargs['category_id'] = category
+        # if brand is not None:
+        #     kwargs['brand_id'] = brand
 
-        name = self.request.GET.get("name")
-        category_name = self.request.GET.get("category_name")
-        group_name = self.request.GET.get("group_name")
-        filter_price = self.request.GET.get("filter_price")
-
-        filters = Q()
-
-        if name:
-            filters |= Q(name__icontains=name)
-
-        if category_name:
-            filters |= Q(category__name__icontains=category_name)
-
-        if group_name:
-            filters |= Q(group__name__icontains=group_name)
-
-        queryset = queryset.filter(filters)
-
-        if filter_price:
-            start_price, end_price = map(float, filter_price.split("-"))
-            queryset = queryset.filter(price__gte=start_price, price__lte=end_price)
-
-        return queryset
-
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        if len(kwargs) > 0 and kwargs_ors is not None:
+            self.filter_object = self.filter_object & (kwargs_ors) & (Q(**kwargs))
+            queryset = self.model.objects.filter(self.filter_object)
+        elif kwargs_ors is not None:
+            self.filter_object = self.filter_object & (kwargs_ors)
+            queryset = self.model.objects.filter(self.filter_object)
+        elif len(kwargs) > 0:
+            self.filter_object = self.filter_object & (Q(**kwargs))
+            queryset = self.model.objects.filter(self.filter_object)
+        else:
+            queryset = queryset
+        return queryset.select_related("group", "category", "subgroup").distinct()
 
     def get(self, request):
         all_status = request.GET.get("all", None)
