@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from django.views import View
+from django.http import JsonResponse
 from common.views import (
     BaseDetailView,
     BaseListView,
@@ -346,18 +348,59 @@ class CartItemListView(BaseListView):
 
         return Response({'message': 'Items added to cart successfully'}, status=status.HTTP_200_OK)
 
-    def remove_cart_item(self, request, product_id):
+class RemoveCartItemView(View):
+    def post(self, request, operation, product_id=None):
         """
-        Remove cart item based on user and product ID.
+        Remove cart item(s) based on user and operation.
+        """
+        if operation == 'single':
+            if product_id:
+                return self.remove_single_item(request, product_id)
+            else:
+                return JsonResponse({'error': 'Product ID is required for single item removal'}, status=400)
+        elif operation == 'all':
+            return self.remove_all_items(request)
+        else:
+            return JsonResponse({'error': 'Invalid operation'}, status=400)
+
+    def remove_single_item(self, request, product_id):
+        """
+        Remove a single cart item based on user and product ID.
         """
         if request.user.is_authenticated:
-            # Remove item from database for authenticated users
-            CartItem.objects.filter(user=request.user, product_id=product_id).delete()
+            try:
+                cart_item = CartItem.objects.get(user=request.user, product_id=product_id)
+                cart_item.delete()
+                print(f"Item {product_id} removed from session carteeee")
+                logger.info(f"Item with product_id {product_id} removed from cart for user {request.user.username}")
+                return JsonResponse({'message': 'Item removed from cart successfully'}, status=200)
+            except CartItem.DoesNotExist:
+                return JsonResponse({'error': 'Cart item not found or already removed'}, status=404)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)
         else:
-            # Remove item from session cart list for anonymous users
+            # Handle cart removal for unauthenticated  users
             cart_items = request.session.get('cart', [])
             updated_cart = [item for item in cart_items if item['product_id'] != product_id]
             request.session['cart'] = updated_cart
+            print(f"Item {product_id} removed from session cart")
+            return JsonResponse({'message': 'Item removed from cart successfully'}, status=200)
+
+    def remove_all_items(self, request):
+        """
+        Remove all cart items for the authenticated user.
+        """
+        if request.user.is_authenticated:
+            try:
+                CartItem.objects.filter(user=request.user).delete()
+                return JsonResponse({'message': 'All items removed from cart successfully'}, status=200)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)
+        else:
+            # Handle cart removal for unauthenticated users
+            request.session['cart'] = []
+            return JsonResponse({'message': 'All items removed from cart successfully'}, status=200)
+    
 
 
 

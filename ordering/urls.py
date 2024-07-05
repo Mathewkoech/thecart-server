@@ -10,7 +10,8 @@ from ordering.views import (
     CartItemListView,
     CartItemDetailView,
     OrderCreateView,
-    CheckoutOrderView
+    CheckoutOrderView,
+    RemoveCartItemView
 )
 app_name = "ordering"
 urlpatterns = [
@@ -20,7 +21,8 @@ urlpatterns = [
     # path("create/", OrderCreateView.as_view(), name="orders-create"),
     path("orders/<uuid:pk>/", OrderDetailView.as_view(), name="order_detail"),
     path("<int:pk>/delete/", OrderDetailView.as_view(), name="order-delete"),
-    # path("post/", postorder_url, name="post_order"),
+    path('cart/remove/<str:operation>/<uuid:product_id>/', RemoveCartItemView.as_view(), name='remove_cart_item'),
+    path('cart/remove/<str:operation>/', RemoveCartItemView.as_view(), name='remove_cart_items'),
     path("shippings/", ShippingListView.as_view(), name="shipping"),
     path("shippings/<uuid:pk>/", ShippingDetailView.as_view(), name="shipping_detail"),
     # path("completeorder/", complete_order, name="completeorder"),
