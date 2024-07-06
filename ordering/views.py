@@ -382,7 +382,9 @@ class CartItemListView(BaseListView):
 
         return Response({'message': 'Items added to cart successfully'}, status=status.HTTP_200_OK)
 
-class RemoveCartItemView(View):
+
+
+class RemoveCartItemView(APIView):
     def post(self, request, operation, product_id=None):
         """
         Remove cart item(s) based on user and operation.
@@ -391,11 +393,11 @@ class RemoveCartItemView(View):
             if product_id:
                 return self.remove_single_item(request, product_id)
             else:
-                return JsonResponse({'error': 'Product ID is required for single item removal'}, status=400)
+                return Response({'error': 'Product ID is required for single item removal'}, status=status.HTTP_400_BAD_REQUEST)
         elif operation == 'all':
             return self.remove_all_items(request)
         else:
-            return JsonResponse({'error': 'Invalid operation'}, status=400)
+            return Response({'error': 'Invalid operation'}, status=status.HTTP_400_BAD_REQUEST)
 
     def remove_single_item(self, request, product_id):
         """
@@ -405,20 +407,17 @@ class RemoveCartItemView(View):
             try:
                 cart_item = CartItem.objects.get(user=request.user, product_id=product_id)
                 cart_item.delete()
-                print(f"Item {product_id} removed from session carteeee")
-                logger.info(f"Item with product_id {product_id} removed from cart for user {request.user.username}")
-                return JsonResponse({'message': 'Item removed from cart successfully'}, status=200)
+                return self.get_updated_cart_items_response(request, message='Item removed from cart successfully')
             except CartItem.DoesNotExist:
-                return JsonResponse({'error': 'Cart item not found or already removed'}, status=404)
+                return Response({'error': 'Cart item not found or already removed'}, status=status.HTTP_404_NOT_FOUND)
             except Exception as e:
-                return JsonResponse({'error': str(e)}, status=500)
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
-            # Handle cart removal for unauthenticated  users
+            # Handle cart removal for unauthenticated users
             cart_items = request.session.get('cart', [])
-            updated_cart = [item for item in cart_items if item['product_id'] != product_id]
+            updated_cart = [item for item in cart_items if item.get('product_id') != product_id]
             request.session['cart'] = updated_cart
-            print(f"Item {product_id} removed from session cart")
-            return JsonResponse({'message': 'Item removed from cart successfully'}, status=200)
+            return Response({'message': 'Item removed from cart successfully'}, status=status.HTTP_200_OK)
 
     def remove_all_items(self, request):
         """
@@ -427,15 +426,40 @@ class RemoveCartItemView(View):
         if request.user.is_authenticated:
             try:
                 CartItem.objects.filter(user=request.user).delete()
-                return JsonResponse({'message': 'All items removed from cart successfully'}, status=200)
+                return self.get_updated_cart_items_response(request, message='All items removed from cart successfully')
             except Exception as e:
-                return JsonResponse({'error': str(e)}, status=500)
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             # Handle cart removal for unauthenticated users
-            request.session['cart'] = []
-            return JsonResponse({'message': 'All items removed from cart successfully'}, status=200)
-    
+            request.session['cart'] = []  # Clear the cart and setting to empty list
+            return Response({'message': 'All items removed from cart successfully'}, status=status.HTTP_200_OK)
 
+    def get_updated_cart_items_response(self, request, message=None):
+        """
+        Fetching  updated cart items  from db and return serialized response with optional message.
+        """
+        if request.user.is_authenticated:
+            cart_items = CartItem.objects.filter(user=request.user)
+            serializer = CartItemSerializer(cart_items, many=True)
+            response_data = serializer.data
+            if message:
+                response_data.append({'message': message})
+            return Response(response_data, status=status.HTTP_200_OK)
+        else:
+            cart_items = request.session.get('cart', [])
+            serialized_cart_items = []
+            for item in cart_items:
+                product_name = item.get('product_name', '')
+                quantity = item.get('quantity', 0)
+                price = item.get('price', 0.0)
+                serialized_cart_items.append({
+                    'product': product_name,
+                    'quantity': quantity,
+                    'price': price
+                })
+            if message:
+                serialized_cart_items.append({'message': message})
+            return Response(serialized_cart_items, status=status.HTTP_200_OK)
 
 
 class CartItemDetailView(BaseDetailView):
