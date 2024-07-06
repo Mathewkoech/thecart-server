@@ -69,6 +69,7 @@ class OrderCreateView(APIView):
         order = Order.objects.create(
             user=request.user,
             total_price=total_price,
+            status='pending',
         )
 
         # Create order items
@@ -129,14 +130,31 @@ class OrderDetailView(ImageBaseDetailView):
 
 
 
-class CheckoutOrderView(APIView):
+class CheckoutOrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id=None):
+        """
+        Retrieve all checkout orders for the authenticated user or a specific order if order_id is provided.
+        """
+        if order_id:
+            order = Order.objects.get(pk=order_id)
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            user_orders = Order.objects.filter(user=request.user)
+            if not user_orders.exists():
+                return Response({'error': 'No orders found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Serialize the orders
+            serializer = OrderSerializer(user_orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, order_id):
         try:
-            order = Order.objects.get(pk=order_id, user=request.user)
+            order = Order.objects.get(pk=order_id, user=request.user, status="pending")
         except Order.DoesNotExist:
-            return Response({'error': 'Order not found'}, status=HTTP_404_NOT_FOUND)
+            return Response({'error': 'Order not found or already checked out'}, status=status.HTTP_404_NOT_FOUND)
         user_orders = Order.objects.filter(user=request.user)
         if not user_orders.exists():
             return Response({'error': 'No orders found for checkout. Please create an order first.'}, status=HTTP_400_BAD_REQUEST)
@@ -157,12 +175,28 @@ class CheckoutOrderView(APIView):
         shipping_address.save()  # Save the ShippingAddress object first (optional)
 
         order.shipping_address = shipping_address
+        order.contact_email = request.data.get("contact_email", None)
+        order.contact_phone = request.data.get("contact_phone", None)
+        order.status = "completed"
         order.save()
 
 
         return Response({'message': 'Order checkout successful! Wait for delivery within 24 hours.'}, status=status.HTTP_200_OK)
 
 
+class CheckoutOrderListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retrieve all checkout orders for the authenticated user.
+        """
+        user_orders = Order.objects.filter(user=request.user)
+        if not user_orders.exists():
+            return Response({'error': 'No orders found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = OrderSerializer(user_orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ShippingListView(BaseListView):
     """
