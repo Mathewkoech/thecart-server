@@ -324,7 +324,7 @@ class CartItemListView(BaseListView):
     def get(self, request):
         if request.user.is_authenticated:
             cart_items = CartItem.objects.filter(user=request.user)
-            serializer = CartItemSerializer(cart_items, many=True)
+            serializer = ReadCartItemSerializer(cart_items, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         
         cart_items = request.session.get('cart', [])

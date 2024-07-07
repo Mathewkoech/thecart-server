@@ -108,3 +108,16 @@ class ReadCartItemSerializer(BaseModelSerializer):
     class Meta(BaseModelSerializer.Meta):
         model = CartItem
         exclude = ()
+        
+    def get_product(self, obj):
+        product_obj = obj.product
+        if product_obj:
+            product_serializer = ProductSerializer(product_obj)
+            return {
+                'id': product_obj.id,
+                'name': product_serializer.data.get('name', ''),
+                'brand': product_serializer.data.get('brand', ''),
+                'description': product_serializer.data.get('description', ''),
+                'image': product_serializer.data.get('image', ''),
+            }
+        return None
