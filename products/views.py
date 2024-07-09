@@ -68,7 +68,7 @@ class ProductListView(ImageBaseListView):
         else:
             queryset = queryset
         return queryset.select_related("group", "category", "subgroup").distinct()
-
+    @permission_classes([AllowAny])
     def get(self, request):
         all_status = request.GET.get("all", None)
         if all_status is not None:
