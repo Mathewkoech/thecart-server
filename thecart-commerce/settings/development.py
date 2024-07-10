@@ -14,5 +14,20 @@ DATABASES = {
     }
 }
 
+# Replace the SQLite DATABASES configuration with PostgreSQL:
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         conn_max_age=600,
+#         default=f'postgresql://{config("POSTGRES_USER")}'
+#                 f':{config("POSTGRES_PASSWORD")}'
+#                 f'@{config("POSTGRES_HOST")}'
+#                 f':{config("DB_PORT")}/{config("POSTGRES_DB")}'
+#     )
+# }
+
+# Use config for other settings as needed
+SECRET_KEY = config('SECRET_KEY')
+
+
 # Email BackEnd
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

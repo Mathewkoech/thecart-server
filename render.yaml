@@ -1,0 +1,23 @@
+services:
+  - type: web
+    plan: free
+    name: thecart-commerce
+    runtime: python-3.11  # Update to Python 3.11
+    buildCommand: "./build.sh"
+    startCommand: "python -m gunicorn thecart-commerce.asgi:application -k uvicorn.workers.UvicornWorker"
+    buildEnvironment:
+      buildEnvironment:
+      secrets:
+        - name: DEBIAN_FRONTEND
+          value: noninteractive
+    envVars:
+      - key: SECRET_KEY
+        fromService:
+          name: thecart-commerce
+          property: SECRET_KEY
+      - key: DATABASE_URL
+        fromService:
+          name: thecart-commerce
+          property: DATABASE_URL
+      - key: WEB_CONCURRENCY
+        value: "4"

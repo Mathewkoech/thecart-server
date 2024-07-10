@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from django.views import View
+from django.http import JsonResponse
 from common.views import (
     BaseDetailView,
     BaseListView,
@@ -12,6 +14,7 @@ from ordering.serializers import (
     ShippingSerializer,
     CartItemSerializer,
     ReadCartItemSerializer,
+    OrderUpdateSerializer,
 )
 from rest_framework.response import Response
 from rest_framework import status
@@ -26,62 +29,174 @@ from thecart_auth.models import User
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from decimal import Decimal
 
 class OrderCreateView(APIView):
-    """
-    Create an order
-    """
+    # permission_classes = [AllowAny]
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = OrderSerializer(data=request.data)
-        if serializer.is_valid():
-            user = request.user
-            if not serializer.validated_data['items']:  # Check if items list is empty
-                return Response({"error": "Order must have at least one item"}, status=status.HTTP_400_BAD_REQUEST)
-            serializer.save(created_by=user, user=user, first_name=user.first_name, last_name=user.last_name, email=email)  # Set user based on authenticated user
-            return Response(serializer.data, status=HTTP_201_CREATED)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        # Retrieve cart items from session or CartItem model based on user authentication
+        if request.user.is_authenticated:
+            cart_items = CartItem.objects.filter(user=request.user)
+        else:
+            cart_items = request.session.get('cart', [])
+
+        if not cart_items:
+            return Response({'error': 'No items in the cart'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Calculate total price and gather order items
+        total_price = Decimal('0.00')
+        order_items = []
+        for item in cart_items:
+            if request.user.is_authenticated:
+                product = item.product
+                quantity = item.quantity
+            else:
+                product = Product.objects.get(pk=item['product_id'])
+                quantity = item['quantity']
+            price = product.price
+            total_price += price * quantity
+            order_items.append({
+                'product': product,
+                'quantity': quantity,
+                'price': price,
+                'value': price * quantity,
+            })
+
+        # Create the order
+        order = Order.objects.create(
+            user=request.user,
+            total_price=total_price,
+            status='pending',
+        )
+
+        # Create order items
+        for item_data in order_items:
+            OrderItem.objects.create(
+                order=order,
+                product=item_data['product'],
+                quantity=item_data['quantity'],
+                price=item_data['price'],
+                value=item_data['value'],
+            )
+
+        # Clear the cart after order creation
+        if request.user.is_authenticated:
+            cart_items.delete()
+        else:
+            del request.session['cart']
+
+        # Return response with order details
+        return Response({"order_id": order.id, "total_amount": total_price}, status=status.HTTP_201_CREATED)
+
 
 class OrderListView(ImageBaseListView):
     """
     Getting all orders
     """
 
-    model = Order
-    serializer_class = OrderSerializer
-    # permission_classes = [AllowAny]
-    read_serializer_class = ReadOrderSerializer
+    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        if start_date is not None and end_date is not None:
-            self.filter_object = Q(created_at__range=(start_date, end_date))
-        queryset = self.model.objects.filter(self.filter_object)
-        return queryset
+    def get(self, request):
+        orders = Order.objects.filter(user=request.user)
+        serializer = ReadOrderSerializer(orders, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @permission_classes([IsAuthenticated])
     def delete(self, request, pk=None):
         try:
             order = Order.objects.get(pk=pk)
             order.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Order.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
 class OrderDetailView(ImageBaseDetailView):
     """
     Getting a single order
     """
 
-    # permission_classes = [IsAuthenticated]
-    model = Order
-    serializer_class = OrderSerializer
-    read_serializer_class = ReadOrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ReadOrderSerializer(order, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+
+class CheckoutOrderDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id=None):
+        """
+        Retrieve all checkout orders for the authenticated user or a specific order if order_id is provided.
+        """
+        if order_id:
+            order = Order.objects.get(pk=order_id)
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            user_orders = Order.objects.filter(user=request.user)
+            if not user_orders.exists():
+                return Response({'error': 'No orders found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Serialize the orders
+            serializer = OrderSerializer(user_orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(pk=order_id, user=request.user, status="pending")
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found or already checked out'}, status=status.HTTP_404_NOT_FOUND)
+        user_orders = Order.objects.filter(user=request.user)
+        if not user_orders.exists():
+            return Response({'error': 'No orders found for checkout. Please create an order first.'}, status=HTTP_400_BAD_REQUEST)
+
+        required_fields = ["address", "city", "state", "zip_code", "contact_email", "contact_phone"]
+        for field in required_fields:
+            if field not in request.data:
+                return Response({f'error': f'{field} is required'}, status=HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        shipping_address = Shipping(
+            user=user,
+            address=request.data["address"],
+            city=request.data["city"],
+            state=request.data["state"],
+            zip_code=request.data["zip_code"]
+            )
+        shipping_address.save()  # Save the ShippingAddress object first (optional)
+
+        order.shipping_address = shipping_address
+        order.contact_email = request.data.get("contact_email", None)
+        order.contact_phone = request.data.get("contact_phone", None)
+        order.status = "completed"
+        order.save()
+
+
+        return Response({'message': 'Order checkout successful! Wait for delivery within 24 hours.'}, status=status.HTTP_200_OK)
+
+
+class CheckoutOrderListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retrieve all checkout orders for the authenticated user.
+        """
+        user_orders = Order.objects.filter(user=request.user)
+        if not user_orders.exists():
+            return Response({'error': 'No orders found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = OrderSerializer(user_orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ShippingListView(BaseListView):
     """
@@ -205,56 +320,146 @@ class CartItemListView(BaseListView):
 
     def get_queryset(self):
         # User can only see their own cart items
-        return CartItem.objects.filter(cart__user=self.request.user)
+        return CartItem.objects.filter(user=self.request.user)
+    def get(self, request):
+        if request.user.is_authenticated:
+            cart_items = CartItem.objects.filter(user=request.user)
+            serializer = ReadCartItemSerializer(cart_items, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        cart_items = request.session.get('cart', [])
+        if not cart_items:
+            return Response([], status=status.HTTP_200_OK)
+        
+        serialized_cart_items = []
+        for item in cart_items:
+            product = Product.objects.get(pk=item['product_id'])
+            serialized_cart_items.append({
+                'product': product.name,
+                'quantity': item['quantity'],
+                'price': product.price
+            })
+        
+        return Response(serialized_cart_items, status=status.HTTP_200_OK)
 
     def post(self, request):
-        # Get product ID from request data
-        product_id = request.data.get('product_id')
+        items = request.data
 
-        # Validate data
-        if not product_id:
-            return Response({'error': 'Missing product ID'}, status=HTTP_400_BAD_REQUEST)
+        if not isinstance(items, list):
+            return Response({'error': 'Request body must be a list of items'}, status=status.HTTP_400_BAD_REQUEST)
 
-        product = Product.objects.get(pk=product_id)
+        for item in items:
+            product_id = item.get('product_id')
+            quantity = item.get('quantity', 1)  # Default quantity to 1 if not provided by user
 
-        # Get user (if available)
-        user = request.user  # This will be the authenticated user if logged in
+            if not product_id:
+                return Response({'error': 'Missing product ID'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create a session key if it doesn't exist
-        request.session.set_expiry(0)  # Set session cookie expiry to browser session
+            try:
+                product = Product.objects.get(pk=product_id)
+            except Product.DoesNotExist:
+                return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Retrieve cart items from session (or create an empty list)
-        cart_items = request.session.get('cart', [])
+            # Check if user is authenticated
+            if request.user.is_authenticated:
+                # Add to cart using CartItem model
+                cart_item, created = CartItem.objects.get_or_create(
+                    user=request.user, product=product,
+                    defaults={'quantity': quantity}
+                )
+                if not created:
+                    cart_item.quantity += quantity
+                    cart_item.save()
+            else:
+                # Add to session-based cart
+                cart_items = request.session.get('cart', [])
+                existing_item = next((i for i in cart_items if i['product_id'] == product_id), None)
+                if existing_item:
+                    existing_item['quantity'] += quantity
+                else:
+                    cart_items.append({'product_id': product_id, 'quantity': quantity})
+                request.session['cart'] = cart_items
 
-        # Check if item already exists in cart (based on product ID)
-        existing_item = next((item for item in cart_items if item['product_id'] == product_id), None)
+        return Response({'message': 'Items added to cart successfully'}, status=status.HTTP_200_OK)
 
-        if existing_item:
-            existing_item['quantity'] += 1
-        else:
-            cart_items.append({
-                'product_id': product_id,
-                'quantity': 1,
-            })
 
-        # Update session with cart items
-        request.session['cart'] = cart_items
 
-        return Response({'message': 'Item added to cart successfully'}, status=HTTP_200_OK)
-
-    def remove_cart_item(self, request, product_id):
+class RemoveCartItemView(APIView):
+    def post(self, request, operation, product_id=None):
         """
-        Remove cart item based on user and product ID.
+        Remove cart item(s) based on user and operation.
+        """
+        if operation == 'single':
+            if product_id:
+                return self.remove_single_item(request, product_id)
+            else:
+                return Response({'error': 'Product ID is required for single item removal'}, status=status.HTTP_400_BAD_REQUEST)
+        elif operation == 'all':
+            return self.remove_all_items(request)
+        else:
+            return Response({'error': 'Invalid operation'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def remove_single_item(self, request, product_id):
+        """
+        Remove a single cart item based on user and product ID.
         """
         if request.user.is_authenticated:
-            # Remove item from database for authenticated users
-            CartItem.objects.filter(user=request.user, product_id=product_id).delete()
+            try:
+                cart_item = CartItem.objects.get(user=request.user, product_id=product_id)
+                cart_item.delete()
+                return self.get_updated_cart_items_response(request, message='Item removed from cart successfully')
+            except CartItem.DoesNotExist:
+                return Response({'error': 'Cart item not found or already removed'}, status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
-            # Remove item from session cart list for anonymous users
+            # Handle cart removal for unauthenticated users
             cart_items = request.session.get('cart', [])
-            updated_cart = [item for item in cart_items if item['product_id'] != product_id]
+            updated_cart = [item for item in cart_items if item.get('product_id') != product_id]
             request.session['cart'] = updated_cart
+            return Response({'message': 'Item removed from cart successfully'}, status=status.HTTP_200_OK)
 
+    def remove_all_items(self, request):
+        """
+        Remove all cart items for the authenticated user.
+        """
+        if request.user.is_authenticated:
+            try:
+                CartItem.objects.filter(user=request.user).delete()
+                return self.get_updated_cart_items_response(request, message='All items removed from cart successfully')
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            # Handle cart removal for unauthenticated users
+            request.session['cart'] = []  # Clear the cart and setting to empty list
+            return Response({'message': 'All items removed from cart successfully'}, status=status.HTTP_200_OK)
+
+    def get_updated_cart_items_response(self, request, message=None):
+        """
+        Fetching  updated cart items  from db and return serialized response with optional message.
+        """
+        if request.user.is_authenticated:
+            cart_items = CartItem.objects.filter(user=request.user)
+            serializer = CartItemSerializer(cart_items, many=True)
+            response_data = serializer.data
+            if message:
+                response_data.append({'message': message})
+            return Response(response_data, status=status.HTTP_200_OK)
+        else:
+            cart_items = request.session.get('cart', [])
+            serialized_cart_items = []
+            for item in cart_items:
+                product_name = item.get('product_name', '')
+                quantity = item.get('quantity', 0)
+                price = item.get('price', 0.0)
+                serialized_cart_items.append({
+                    'product': product_name,
+                    'quantity': quantity,
+                    'price': price
+                })
+            if message:
+                serialized_cart_items.append({'message': message})
+            return Response(serialized_cart_items, status=status.HTTP_200_OK)
 
 
 class CartItemDetailView(BaseDetailView):
@@ -265,6 +470,18 @@ class CartItemDetailView(BaseDetailView):
 
     def get_object(self):
         return get_object_or_404(CartItem, id=self.kwargs['pk'], cart__user=self.request.user)
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            # Fetch cart items for authenticated user
+            cart_items = CartItem.objects.filter(user=request.user)
+            serializer = CartItemSerializer(cart_items, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            # Fetch cart items from session if not authenticated
+            cart_items = request.session.get('cart', [])
+            # Assuming cart_items is a list of dictionaries
+            return Response(cart_items, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
         # Only allow the user to delete their own cart items

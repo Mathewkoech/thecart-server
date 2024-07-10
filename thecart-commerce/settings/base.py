@@ -3,23 +3,25 @@ from decouple import config, Csv
 import datetime
 import os
 from datetime import timedelta
-
-
+import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# STATIC_URL = '/static/'
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 SITE_ID = config("SITE_ID", cast=int)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv(), default="127.0.0.1")
-
-print(ALLOWED_HOSTS)
-SECRET_KEY = config("SECRET_KEY")
 DEBUG = config("DEBUG", cast=bool, default=False)
+if not DEBUG:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# print(ALLOWED_HOSTS)
+SECRET_KEY = config("SECRET_KEY")
+
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -54,6 +56,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -63,7 +66,8 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 ]
 
-CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_ALLOW_ALL=True
+CORS_ALLOW_CREDENTIALS=True
 CORS_ORIGIN_WHITELIST = (
   'http://localhost:5173',
   'http://127.0.0.1:5173',

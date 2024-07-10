@@ -18,16 +18,28 @@ class ReadOrderItemSerializer(BaseModelSerializer):
 
     class Meta(BaseModelSerializer.Meta):
         model = OrderItem
+        exclude = []
 
 class ReadOrderSerializer(BaseModelSerializer):
-    value = serializers.SerializerMethodField()
     order_items = ReadOrderItemSerializer(many=True, read_only=True)
+    value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'status', 'total_price','shipping_address', 'order_items', 'value']
 
     def get_value(self, obj):
         return sum(item.value for item in obj.order_items.all())
 
-    class Meta(BaseModelSerializer.Meta):
-        model = Order
+    def to_representation(self, instance):
+        """
+        Override to_representation to conditionally include user information.
+        """
+        data = super().to_representation(instance)
+        if not self.context['request'].user.is_authenticated:
+            data.pop('user', None)  
+            data['shipping_address'] = 'Address hidden'
+        return data
 
 class OrderItemSerializer(BaseModelSerializer):
     quantity = serializers.IntegerField(validators=[non_zero_quantity])
@@ -36,6 +48,18 @@ class OrderItemSerializer(BaseModelSerializer):
     class Meta(BaseModelSerializer.Meta):
         model = OrderItem
         exclude = []
+
+
+class OrderUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['payment_method', 'contact_email', 'contact_phone']
+        extra_kwargs = {
+            'payment_method': {'required': True},
+            'contact_email': {'required': True},
+            'contact_phone': {'required': True},
+        }
+
 
 
 class OrderSerializer(BaseModelSerializer):
@@ -75,6 +99,7 @@ class ShippingSerializer(BaseModelSerializer):
 class CartItemSerializer(BaseModelSerializer):
     class Meta(BaseModelSerializer.Meta):
         model = CartItem
+        exclude = ()
 
 
 class ReadCartItemSerializer(BaseModelSerializer):
@@ -82,3 +107,17 @@ class ReadCartItemSerializer(BaseModelSerializer):
 
     class Meta(BaseModelSerializer.Meta):
         model = CartItem
+        exclude = ()
+        
+    def get_product(self, obj):
+        product_obj = obj.product
+        if product_obj:
+            product_serializer = ProductSerializer(product_obj)
+            return {
+                'id': product_obj.id,
+                'name': product_serializer.data.get('name', ''),
+                'brand': product_serializer.data.get('brand', ''),
+                'description': product_serializer.data.get('description', ''),
+                'image': product_serializer.data.get('image', ''),
+            }
+        return None
